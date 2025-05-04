@@ -149,14 +149,28 @@ async function renderAdmin(sessionId) {
     // Ürünleri ekle
     let itemsHtml = '';
     items.forEach(item => {
-      const category = categories.find(c => String(c._id) === String(item.category_id));
-      const categoryName = category ? category.name : 'Bilinmeyen Kategori';
+      let categoryName = 'Bilinmeyen Kategori';
+      
+      // Kategori ID'sini güvenli bir şekilde kontrol et
+      if (item.category_id) {
+        const category = categories.find(c => {
+          try {
+            return c._id.toString() === item.category_id.toString();
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        if (category) {
+          categoryName = category.name;
+        }
+      }
       
       itemsHtml += `
         <tr>
           <td>${item.name}</td>
           <td>${categoryName}</td>
-          <td>${item.price.toFixed(0)} ₺</td>
+          <td>${parseFloat(item.price).toFixed(0)} ₺</td>
           <td><a href="/delete_item/${item._id}" class="delete-btn">Sil</a></td>
         </tr>
       `;
@@ -233,13 +247,32 @@ async function handleAddItem(body, sessionId) {
   const params = querystring.parse(body);
   const { name, description, price, category_id } = params;
   
+  if (!name || !price || !category_id) {
+    return {
+      statusCode: 400,
+      body: 'Hata: Ürün adı, fiyatı ve kategori gereklidir.'
+    };
+  }
+  
   try {
     const db = await connectToDatabase();
-    await db.collection('items').insertOne({
+    
+    // Kategori ID'si doğrulama
+    let categoryObjId;
+    try {
+      categoryObjId = new ObjectId(category_id);
+    } catch (err) {
+      return {
+        statusCode: 400,
+        body: `Hata: Geçersiz kategori ID'si. Lütfen geçerli bir kategori seçin.`
+      };
+    }
+    
+    const result = await db.collection('items').insertOne({
       name,
       description: description || '',
       price: parseFloat(price),
-      category_id: new ObjectId(category_id)
+      category_id: categoryObjId
     });
     
     return {
@@ -250,6 +283,7 @@ async function handleAddItem(body, sessionId) {
       body: 'Redirecting to admin...'
     };
   } catch (error) {
+    console.error('Ürün ekleme hatası:', error);
     return {
       statusCode: 500,
       body: `Hata: ${error.message}`
@@ -273,9 +307,16 @@ async function handleAddCategory(body, sessionId) {
   const params = querystring.parse(body);
   const { name } = params;
   
+  if (!name) {
+    return {
+      statusCode: 400,
+      body: 'Hata: Kategori adı gereklidir.'
+    };
+  }
+  
   try {
     const db = await connectToDatabase();
-    await db.collection('categories').insertOne({ name });
+    const result = await db.collection('categories').insertOne({ name });
     
     return {
       statusCode: 302,
@@ -285,6 +326,7 @@ async function handleAddCategory(body, sessionId) {
       body: 'Redirecting to admin...'
     };
   } catch (error) {
+    console.error('Kategori ekleme hatası:', error);
     return {
       statusCode: 500,
       body: `Hata: ${error.message}`
@@ -307,7 +349,19 @@ async function handleDeleteItem(itemId, sessionId) {
   
   try {
     const db = await connectToDatabase();
-    await db.collection('items').deleteOne({ _id: new ObjectId(itemId) });
+    
+    // Item ID'si doğrulama
+    let itemObjId;
+    try {
+      itemObjId = new ObjectId(itemId);
+    } catch (err) {
+      return {
+        statusCode: 400,
+        body: `Hata: Geçersiz ürün ID'si.`
+      };
+    }
+    
+    const result = await db.collection('items').deleteOne({ _id: itemObjId });
     
     return {
       statusCode: 302,
@@ -317,6 +371,7 @@ async function handleDeleteItem(itemId, sessionId) {
       body: 'Redirecting to admin...'
     };
   } catch (error) {
+    console.error('Ürün silme hatası:', error);
     return {
       statusCode: 500,
       body: `Hata: ${error.message}`
@@ -339,8 +394,20 @@ async function handleDeleteCategory(categoryId, sessionId) {
   
   try {
     const db = await connectToDatabase();
-    await db.collection('categories').deleteOne({ _id: new ObjectId(categoryId) });
-    await db.collection('items').deleteMany({ category_id: new ObjectId(categoryId) });
+    
+    // Kategori ID'si doğrulama
+    let categoryObjId;
+    try {
+      categoryObjId = new ObjectId(categoryId);
+    } catch (err) {
+      return {
+        statusCode: 400,
+        body: `Hata: Geçersiz kategori ID'si.`
+      };
+    }
+    
+    await db.collection('categories').deleteOne({ _id: categoryObjId });
+    await db.collection('items').deleteMany({ category_id: categoryObjId });
     
     return {
       statusCode: 302,
@@ -350,6 +417,7 @@ async function handleDeleteCategory(categoryId, sessionId) {
       body: 'Redirecting to admin...'
     };
   } catch (error) {
+    console.error('Kategori silme hatası:', error);
     return {
       statusCode: 500,
       body: `Hata: ${error.message}`
