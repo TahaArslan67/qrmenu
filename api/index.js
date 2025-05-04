@@ -39,44 +39,54 @@ async function renderMenu() {
       item.img_url = `/static/uploads/${imgBase}.jpg`;
     });
     
-    // HTML şablonunu doldur
+    // HTML şablonunu oku
     let html = menuTemplate;
     
+    // Template ifadelerini temizle
+    html = html.replace(/\{\%.*?\%\}/g, '');
+    html = html.replace(/\{\{.*?\}\}/g, '');
+    
     // Kategorileri ve ürünleri ekle
-    let categoriesHtml = '';
-    categories.forEach(category => {
-      categoriesHtml += `<div class="menu-section-title" data-category="${category.name}">${category.name}</div>`;
-      categoriesHtml += '<ul class="menu-list">';
-      
-      items.forEach(item => {
-        if (String(item.category_id) === String(category._id)) {
-          categoriesHtml += `
-            <li class="menu-item-row">
+    let menuContent = '';
+    
+    if (categories.length > 0) {
+      categories.forEach(category => {
+        // Kategori başlığını ekle
+        menuContent += `<div class="menu-section-title" data-category="${category.name}">${category.name}</div>`;
+        menuContent += '<ul class="menu-list">';
+        
+        // Bu kategoriye ait ürünleri filtrele
+        const categoryItems = items.filter(item => {
+          try {
+            return item.category_id && item.category_id.toString() === category._id.toString();
+          } catch (e) {
+            return false;
+          }
+        });
+        
+        // Kategoriye ait ürünleri ekle
+        if (categoryItems.length > 0) {
+          categoryItems.forEach(item => {
+            menuContent += `
+              <li class="menu-item-row">
                 <div class="menu-item-info">
-                    <span class="menu-item-name">${item.name}</span>
+                  <span class="menu-item-name">${item.name}</span>
                 </div>
-                <span class="menu-item-price">${item.price.toFixed(0)} ₺</span>
+                <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
                 <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}">
-            </li>
-          `;
+              </li>
+            `;
+          });
         }
+        
+        menuContent += '</ul>';
       });
-      
-      categoriesHtml += '</ul>';
-    });
+    } else {
+      menuContent = '<p>Henüz kategori bulunmamaktadır.</p>';
+    }
     
-    // HTML içine kategorileri yerleştir
-    html = html.replace('{% for category in categories %}', '')
-               .replace('{% endfor %}', '')
-               .replace('{{ category[\'name\'] }}', '')
-               .replace('{{ category[\'_id\'] }}', '')
-               .replace('{% for item in items %}', '')
-               .replace('{% endfor %}', '')
-               .replace('{% if item[\'category_id\'] == category[\'_id\'] %}', '')
-               .replace('{% endif %}', '');
-    
-    // Kategorileri HTML içine yerleştir
-    html = html.replace('<div class="menu-section">', `<div class="menu-section">${categoriesHtml}`);
+    // Menü içeriğini HTML'e ekle
+    html = html.replace('<div class="menu-section">', `<div class="menu-section">${menuContent}`);
     
     return {
       statusCode: 200,
@@ -86,6 +96,7 @@ async function renderMenu() {
       body: html
     };
   } catch (error) {
+    console.error('Menü render hatası:', error);
     return {
       statusCode: 500,
       body: `Hata: ${error.message}`
