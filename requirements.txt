@@ -1,3 +1,5 @@
 flask
 werkzeug
 pymongo
+Flask
+serverless-wsgi

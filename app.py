@@ -160,3 +160,8 @@ if __name__ == '__main__':
     if not os.path.exists('static/uploads/'):
         os.makedirs('static/uploads/')
     app.run(debug=True)
+
+import serverless_wsgi
+
+def handler(event, context):
+    return serverless_wsgi.handle_request(app, event, context)
