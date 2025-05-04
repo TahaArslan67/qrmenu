@@ -154,15 +154,15 @@ class handler(BaseHTTPRequestHandler):
                         if str(item.get('category_id')) == str(category['_id']):
                             # Ürün adından resim URL'si oluştur
                             img_base = item['name'].lower().replace(' ', '_')
-                            img_url = f"https://raw.githubusercontent.com/arslantaha67/qrmenu-images/main/{img_base}.jpg"
+                            img_url = f"/static/uploads/{img_base}.jpg"
                             
                             # Eğer özel ürün resmi yoksa, kategori bazlı varsayılan resim kullan
                             if category["name"] == "Ana Yemekler":
-                                default_img = "https://i.ibb.co/9HBkjpw/kasarli-pide.jpg"
+                                default_img = "/static/uploads/5108008-457787.jpg"
                             elif category["name"] == "Tatlılar":
-                                default_img = "https://i.ibb.co/Jm5DLKT/kunefe.jpg"
+                                default_img = "/static/uploads/kizgin.png"
                             else:
-                                default_img = "https://i.ibb.co/9HBkjpw/kasarli-pide.jpg"
+                                default_img = "/static/uploads/pide_bg.jpg"
                             
                             response += f"""
                             <div class="menu-item">
