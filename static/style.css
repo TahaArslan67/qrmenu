@@ -294,4 +294,30 @@ body {
   .menu-item-price { 
     font-size: 1.01rem; 
   }
+  /* Telefon görünümünde hover animasyonlarını düzenleme */
+  .menu-item-row:hover {
+    background: #fafafa;
+    box-shadow: 0 12px 32px #eee4, 0 2px 0 #fff6;
+    transform: scale(1.03) translateY(-2px) rotate(-1deg);
+    animation: none;
+    z-index: 10;
+  }
+  .menu-item-row:hover ~ .menu-item-row,
+  .menu-item-row:hover ~ * .menu-item-row {
+    animation: none;
+    transform: none;
+    transition: none;
+  }
+  .menu-item-row:hover .menu-item-price {
+    background: #fafafa;
+    box-shadow: 0 2px 14px #eee3, 0 0 18px #fff7;
+    transform: scale(1.13) rotate(-7deg);
+    animation: none;
+  }
+  .menu-img-thumb:hover {
+    transform: scale(1.22) rotate(-6deg);
+    box-shadow: 0 18px 44px #eee5, 0 2px 0 #fff6;
+    filter: brightness(1.18) saturate(1.5);
+    animation: none;
+  }
 }
