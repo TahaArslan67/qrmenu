@@ -37,7 +37,7 @@ class handler(BaseHTTPRequestHandler):
                 
                 body {
                   font-family: 'Quicksand', Arial, sans-serif;
-                  background: #fff url('https://i.ibb.co/Jj9q7Nf/pide-bg.jpg') center center/cover no-repeat fixed;
+                  background: #fff url('/static/uploads/pide_bg.jpg') center center/cover no-repeat fixed;
                   margin: 0;
                   padding: 0;
                   min-height: 100vh;
@@ -152,15 +152,15 @@ class handler(BaseHTTPRequestHandler):
                     
                     for item in items:
                         if str(item.get('category_id')) == str(category['_id']):
-                            # Ürün adından resim URL'si oluştur
+                            # Ürün adından resim URL'si oluştur - tam olarak ürün adını kullan
                             img_base = item['name'].lower().replace(' ', '_')
                             img_url = f"/static/uploads/{img_base}.jpg"
                             
                             # Eğer özel ürün resmi yoksa, kategori bazlı varsayılan resim kullan
                             if category["name"] == "Ana Yemekler":
-                                default_img = "/static/uploads/5108008-457787.jpg"
+                                default_img = "/static/uploads/pide_bg.jpg"
                             elif category["name"] == "Tatlılar":
-                                default_img = "/static/uploads/kizgin.png"
+                                default_img = "/static/uploads/pide_bg.jpg"
                             else:
                                 default_img = "/static/uploads/pide_bg.jpg"
                             
