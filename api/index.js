@@ -2,6 +2,9 @@
 const { MongoClient, ObjectId } = require('mongodb');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const querystring = require('querystring');
+const cookie = require('cookie');
 
 // MongoDB bağlantısı
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://arslantaha67:0022800228t@panel.gjn1k.mongodb.net:27017/?retryWrites=true&w=majority';
@@ -10,6 +13,12 @@ const MONGO_URI = process.env.MONGODB_URI || 'mongodb://arslantaha67:0022800228t
 const menuTemplate = fs.readFileSync(path.join(__dirname, '../templates/menu.html'), 'utf8');
 const adminTemplate = fs.readFileSync(path.join(__dirname, '../templates/admin.html'), 'utf8');
 const loginTemplate = fs.readFileSync(path.join(__dirname, '../templates/login.html'), 'utf8');
+
+// Oturum anahtarı
+const SESSION_SECRET = 'supersecretkey';
+
+// Basit oturum yönetimi
+const sessions = {};
 
 // MongoDB bağlantısı kurma fonksiyonu
 async function connectToDatabase() {
@@ -84,13 +93,441 @@ async function renderMenu() {
   }
 }
 
+// Login sayfası
+function renderLogin(message = '') {
+  let html = loginTemplate;
+  
+  // Flash mesajını ekle
+  if (message) {
+    html = html.replace('<!-- FLASH_MESSAGE -->', `<div class="alert">${message}</div>`);
+  }
+  
+  return {
+    statusCode: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8'
+    },
+    body: html
+  };
+}
+
+// Admin sayfası
+async function renderAdmin(sessionId) {
+  // Oturum kontrolü
+  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/login'
+      },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  try {
+    const db = await connectToDatabase();
+    const categories = await db.collection('categories').find({}).toArray();
+    const items = await db.collection('items').find({}).toArray();
+    
+    // HTML şablonunu doldur
+    let html = adminTemplate;
+    
+    // Kategorileri ekle
+    let categoriesHtml = '';
+    categories.forEach(category => {
+      categoriesHtml += `<option value="${category._id}">${category.name}</option>`;
+    });
+    
+    // Kategorileri HTML içine yerleştir
+    html = html.replace('{% for category in categories %}', '')
+               .replace('{% endfor %}', '')
+               .replace('{{ category.name }}', '')
+               .replace('{{ category._id }}', '');
+    
+    html = html.replace('<!-- CATEGORIES_OPTIONS -->', categoriesHtml);
+    
+    // Ürünleri ekle
+    let itemsHtml = '';
+    items.forEach(item => {
+      const category = categories.find(c => String(c._id) === String(item.category_id));
+      const categoryName = category ? category.name : 'Bilinmeyen Kategori';
+      
+      itemsHtml += `
+        <tr>
+          <td>${item.name}</td>
+          <td>${categoryName}</td>
+          <td>${item.price.toFixed(0)} ₺</td>
+          <td><a href="/delete_item/${item._id}" class="delete-btn">Sil</a></td>
+        </tr>
+      `;
+    });
+    
+    // Ürünleri HTML içine yerleştir
+    html = html.replace('<!-- ITEMS_LIST -->', itemsHtml);
+    
+    // Kategori listesini ekle
+    let categoryListHtml = '';
+    categories.forEach(category => {
+      categoryListHtml += `
+        <tr>
+          <td>${category.name}</td>
+          <td><a href="/delete_category/${category._id}" class="delete-btn">Sil</a></td>
+        </tr>
+      `;
+    });
+    
+    // Kategori listesini HTML içine yerleştir
+    html = html.replace('<!-- CATEGORIES_LIST -->', categoryListHtml);
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      },
+      body: html
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Login işlemi
+async function handleLogin(body) {
+  const params = querystring.parse(body);
+  const { username, password } = params;
+  
+  if (username === 'admin' && password === 'admin123') {
+    // Oturum oluştur
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    sessions[sessionId] = { admin: true };
+    
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/admin',
+        'Set-Cookie': `sessionId=${sessionId}; Path=/; HttpOnly`
+      },
+      body: 'Redirecting to admin...'
+    };
+  } else {
+    return renderLogin('Kullanıcı adı veya şifre yanlış!');
+  }
+}
+
+// Ürün ekleme
+async function handleAddItem(body, sessionId) {
+  // Oturum kontrolü
+  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/login'
+      },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  const params = querystring.parse(body);
+  const { name, description, price, category_id } = params;
+  
+  try {
+    const db = await connectToDatabase();
+    await db.collection('items').insertOne({
+      name,
+      description: description || '',
+      price: parseFloat(price),
+      category_id: new ObjectId(category_id)
+    });
+    
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/admin'
+      },
+      body: 'Redirecting to admin...'
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Kategori ekleme
+async function handleAddCategory(body, sessionId) {
+  // Oturum kontrolü
+  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/login'
+      },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  const params = querystring.parse(body);
+  const { name } = params;
+  
+  try {
+    const db = await connectToDatabase();
+    await db.collection('categories').insertOne({ name });
+    
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/admin'
+      },
+      body: 'Redirecting to admin...'
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Ürün silme
+async function handleDeleteItem(itemId, sessionId) {
+  // Oturum kontrolü
+  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/login'
+      },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  try {
+    const db = await connectToDatabase();
+    await db.collection('items').deleteOne({ _id: new ObjectId(itemId) });
+    
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/admin'
+      },
+      body: 'Redirecting to admin...'
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Kategori silme
+async function handleDeleteCategory(categoryId, sessionId) {
+  // Oturum kontrolü
+  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/login'
+      },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  try {
+    const db = await connectToDatabase();
+    await db.collection('categories').deleteOne({ _id: new ObjectId(categoryId) });
+    await db.collection('items').deleteMany({ category_id: new ObjectId(categoryId) });
+    
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/admin'
+      },
+      body: 'Redirecting to admin...'
+    };
+  } catch (error) {
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Çıkış yapma
+function handleLogout() {
+  return {
+    statusCode: 302,
+    headers: {
+      'Location': '/',
+      'Set-Cookie': 'sessionId=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    },
+    body: 'Redirecting to home...'
+  };
+}
+
 // API handler
 module.exports = async (req, res) => {
   const { method, url } = req;
   
+  // Oturum bilgisini al
+  let sessionId = null;
+  if (req.headers.cookie) {
+    const cookies = cookie.parse(req.headers.cookie);
+    sessionId = cookies.sessionId;
+  }
+  
   // Ana sayfa
   if (url === '/' || url === '/index.html') {
     const result = await renderMenu();
+    res.statusCode = result.statusCode;
+    
+    if (result.headers) {
+      Object.keys(result.headers).forEach(key => {
+        res.setHeader(key, result.headers[key]);
+      });
+    }
+    
+    res.end(result.body);
+    return;
+  }
+  
+  // Login sayfası
+  if (url === '/login') {
+    if (method === 'GET') {
+      const result = renderLogin();
+      res.statusCode = result.statusCode;
+      
+      if (result.headers) {
+        Object.keys(result.headers).forEach(key => {
+          res.setHeader(key, result.headers[key]);
+        });
+      }
+      
+      res.end(result.body);
+      return;
+    } else if (method === 'POST') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      
+      req.on('end', async () => {
+        const result = await handleLogin(body);
+        res.statusCode = result.statusCode;
+        
+        if (result.headers) {
+          Object.keys(result.headers).forEach(key => {
+            res.setHeader(key, result.headers[key]);
+          });
+        }
+        
+        res.end(result.body);
+      });
+      
+      return;
+    }
+  }
+  
+  // Admin sayfası
+  if (url === '/admin') {
+    const result = await renderAdmin(sessionId);
+    res.statusCode = result.statusCode;
+    
+    if (result.headers) {
+      Object.keys(result.headers).forEach(key => {
+        res.setHeader(key, result.headers[key]);
+      });
+    }
+    
+    res.end(result.body);
+    return;
+  }
+  
+  // Çıkış yapma
+  if (url === '/logout') {
+    const result = handleLogout();
+    res.statusCode = result.statusCode;
+    
+    if (result.headers) {
+      Object.keys(result.headers).forEach(key => {
+        res.setHeader(key, result.headers[key]);
+      });
+    }
+    
+    res.end(result.body);
+    return;
+  }
+  
+  // Ürün ekleme
+  if (url === '/add_item' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+      const result = await handleAddItem(body, sessionId);
+      res.statusCode = result.statusCode;
+      
+      if (result.headers) {
+        Object.keys(result.headers).forEach(key => {
+          res.setHeader(key, result.headers[key]);
+        });
+      }
+      
+      res.end(result.body);
+    });
+    
+    return;
+  }
+  
+  // Kategori ekleme
+  if (url === '/add_category' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+      const result = await handleAddCategory(body, sessionId);
+      res.statusCode = result.statusCode;
+      
+      if (result.headers) {
+        Object.keys(result.headers).forEach(key => {
+          res.setHeader(key, result.headers[key]);
+        });
+      }
+      
+      res.end(result.body);
+    });
+    
+    return;
+  }
+  
+  // Ürün silme
+  if (url.startsWith('/delete_item/')) {
+    const itemId = url.replace('/delete_item/', '');
+    const result = await handleDeleteItem(itemId, sessionId);
+    res.statusCode = result.statusCode;
+    
+    if (result.headers) {
+      Object.keys(result.headers).forEach(key => {
+        res.setHeader(key, result.headers[key]);
+      });
+    }
+    
+    res.end(result.body);
+    return;
+  }
+  
+  // Kategori silme
+  if (url.startsWith('/delete_category/')) {
+    const categoryId = url.replace('/delete_category/', '');
+    const result = await handleDeleteCategory(categoryId, sessionId);
     res.statusCode = result.statusCode;
     
     if (result.headers) {
