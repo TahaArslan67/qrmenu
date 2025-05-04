@@ -12,7 +12,8 @@ app.secret_key = 'supersecretkey'  # Bunu değiştir!
 app.config['UPLOAD_FOLDER'] = 'static/uploads/'
 
 # MongoDB bağlantısı
-MONGO_URI = 'mongodb+srv://arslantaha67:0022800228t@panel.gjn1k.mongodb.net/'
+import os
+MONGO_URI = os.environ.get('MONGODB_URI')
 client = MongoClient(MONGO_URI)
 db = client['qrmenu']
 categories_col = db['categories']
