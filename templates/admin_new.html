@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yönetici Paneli</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa; }
+        h1 { color: #333; margin-bottom: 30px; }
+        h2 { color: #555; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; background-color: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        table, th, td { border: 1px solid #ddd; }
+        th { background-color: #f2f2f2; padding: 12px; text-align: left; font-weight: bold; }
+        td { padding: 12px; text-align: left; }
+        form { margin: 20px 0; padding: 20px; border: 1px solid #ddd; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        input, select, textarea { width: 100%; padding: 10px; margin: 8px 0; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 12px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #45a049; }
+        .delete-btn { color: white; text-decoration: none; background-color: #f44336; padding: 6px 10px; border-radius: 4px; }
+        .delete-btn:hover { background-color: #d32f2f; }
+        .logout { float: right; background-color: #f44336; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; }
+        .logout:hover { background-color: #d32f2f; }
+        .container { max-width: 1000px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Gözde Pide Menü Yönetici Paneli <a href="/logout" class="logout">Çıkış Yap</a></h1>
+        
+        <h2>Kategori Ekle</h2>
+        <form method="post" action="/add_category">
+            <input type="text" name="name" placeholder="Kategori adı" required>
+            <button type="submit">Kategori Ekle</button>
+        </form>
+        
+        <h2>Kategoriler</h2>
+        <table id="categories-table">
+            <thead>
+                <tr>
+                    <th>Kategori Adı</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- CATEGORIES_LIST -->
+            </tbody>
+        </table>
+        
+        <h2>Ürün Ekle</h2>
+        <form method="post" action="/add_item">
+            <input type="text" name="name" placeholder="Ürün adı" required>
+            <textarea name="description" placeholder="Açıklama"></textarea>
+            <input type="number" name="price" placeholder="Fiyat" step="0.01" required>
+            <select name="category_id" required id="category-select">
+                <option value="">Kategori seçin</option>
+                <!-- CATEGORIES_OPTIONS -->
+            </select>
+            <button type="submit">Ürün Ekle</button>
+        </form>
+        
+        <h2>Ürünler</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ürün Adı</th>
+                    <th>Kategori</th>
+                    <th>Fiyat</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- ITEMS_LIST -->
+            </tbody>
+        </table>
+    </div>
+    
+    <script>
+        // Kategori seçme sorununu kontrol etmek için debug bilgisi
+        console.log('Kategori seçim listesi:', document.getElementById('category-select'));
+        console.log('Kategoriler tablosu:', document.getElementById('categories-table'));
+        
+        // Form gönderilmeden önce kontrol
+        document.querySelector('form[action="/add_item"]').addEventListener('submit', function(e) {
+            const categoryId = document.querySelector('select[name="category_id"]').value;
+            console.log('Seçilen kategori ID:', categoryId);
+            
+            if (!categoryId) {
+                e.preventDefault();
+                alert('Lütfen bir kategori seçin!');
+                return false;
+            }
+        });
+    </script>
+</body>
+</html>

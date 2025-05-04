@@ -11,7 +11,7 @@ const MONGO_URI = process.env.MONGODB_URI || 'mongodb://arslantaha67:0022800228t
 
 // HTML şablonları
 const menuTemplate = fs.readFileSync(path.join(__dirname, '../templates/menu.html'), 'utf8');
-const adminTemplate = fs.readFileSync(path.join(__dirname, '../templates/admin.html'), 'utf8');
+const adminTemplate = fs.readFileSync(path.join(__dirname, '../templates/admin_new.html'), 'utf8');
 const loginTemplate = fs.readFileSync(path.join(__dirname, '../templates/login.html'), 'utf8');
 
 // Oturum anahtarı
@@ -129,12 +129,10 @@ async function renderAdmin(sessionId) {
     const categories = await db.collection('categories').find({}).toArray();
     const items = await db.collection('items').find({}).toArray();
     
+    console.log('Veritabanından çekilen kategoriler:', categories);
+    
     // HTML şablonunu oku
     let html = adminTemplate;
-    
-    // Jinja2 template ifadelerini temizle
-    html = html.replace(/\{\%.*?\%\}/g, '');
-    html = html.replace(/\{\{.*?\}\}/g, '');
     
     // Kategori seçim listesini oluştur
     let categoriesOptions = '';
@@ -144,6 +142,20 @@ async function renderAdmin(sessionId) {
     
     // Kategori seçim listesini HTML'e ekle
     html = html.replace('<!-- CATEGORIES_OPTIONS -->', categoriesOptions);
+    
+    // Kategori listesini oluştur
+    let categoryListHtml = '';
+    categories.forEach(category => {
+      categoryListHtml += `
+        <tr>
+          <td>${category.name}</td>
+          <td><a href="/delete_category/${category._id}" class="delete-btn">Sil</a></td>
+        </tr>
+      `;
+    });
+    
+    // Kategori listesini HTML'e ekle
+    html = html.replace('<!-- CATEGORIES_LIST -->', categoryListHtml);
     
     // Ürün listesini oluştur
     let itemsHtml = '';
@@ -178,27 +190,11 @@ async function renderAdmin(sessionId) {
     // Ürün listesini HTML'e ekle
     html = html.replace('<!-- ITEMS_LIST -->', itemsHtml);
     
-    // Kategori listesini oluştur
-    let categoryListHtml = '';
-    categories.forEach(category => {
-      categoryListHtml += `
-        <tr>
-          <td>${category.name}</td>
-          <td><a href="/delete_category/${category._id}" class="delete-btn">Sil</a></td>
-        </tr>
-      `;
-    });
-    
-    // Kategori listesini HTML'e ekle
-    html = html.replace('<!-- CATEGORIES_LIST -->', categoryListHtml);
-    
     // Debug bilgisi ekle
     const debugInfo = `
-      <!-- 
-      Debug Bilgisi:
-      Kategori Sayısı: ${categories.length}
-      Ürün Sayısı: ${items.length}
-      -->
+      <script>
+        console.log('Sunucudan gelen kategori verileri:', ${JSON.stringify(categories)});
+      </script>
     `;
     html = html.replace('</body>', `${debugInfo}</body>`);
     
@@ -257,6 +253,8 @@ async function handleAddItem(body, sessionId) {
   const params = querystring.parse(body);
   const { name, description, price, category_id } = params;
   
+  console.log('Ürün ekleme parametreleri:', { name, description, price, category_id });
+  
   if (!name || !price || !category_id) {
     return {
       statusCode: 400,
@@ -272,6 +270,7 @@ async function handleAddItem(body, sessionId) {
     try {
       categoryObjId = new ObjectId(category_id);
     } catch (err) {
+      console.error('Geçersiz kategori ID:', category_id, err);
       return {
         statusCode: 400,
         body: `Hata: Geçersiz kategori ID'si. Lütfen geçerli bir kategori seçin.`

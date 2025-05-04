@@ -5,21 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Yönetici Paneli</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        table, th, td { border: 1px solid #ddd; }
+        th, td { padding: 10px; text-align: left; }
+        form { margin: 20px 0; padding: 15px; border: 1px solid #ddd; background: #f9f9f9; }
+        input, select, textarea { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        button { padding: 10px 15px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        .delete-btn { color: red; text-decoration: none; }
+    </style>
 </head>
 <body>
     <h1>Yönetici Paneli</h1>
     <a href="/logout">Çıkış Yap</a>
-    <h2>Kategoriler</h2>
+    
+    <h2>Kategori Ekle</h2>
     <form method="post" action="/add_category">
         <input type="text" name="name" placeholder="Kategori adı" required>
-        <button type="submit">Ekle</button>
+        <button type="submit">Kategori Ekle</button>
     </form>
-    <ul>
-    {% for category in categories %}
-        <li>{{ category['name'] }} <a href="/delete_category/{{ category['id'] }}">Sil</a></li>
-    {% endfor %}
-    </ul>
-    <h2>Ürünler</h2>
+    
+    <h2>Kategoriler</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Kategori Adı</th>
+                <th>İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for category in categories %}
+                <tr>
+                    <td>{{ category['name'] }}</td>
+                    <td><a href="/delete_category/{{ category['id'] }}">Sil</a></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <h2>Ürün Ekle</h2>
     <form method="post" action="/add_item">
         <input type="text" name="name" placeholder="Ürün adı" required>
         <textarea name="description" placeholder="Açıklama"></textarea>
@@ -32,16 +58,27 @@
         </select>
         <button type="submit">Ürün Ekle</button>
     </form>
-    <ul>
-    {% for item in items %}
-        <li>
-            {{ item['name'] }} - {{ item['price'] }} TL - {{ item['description'] }}
-            {% if item['image'] %}
-                <img src="/static/uploads/{{ item['image'] }}" alt="{{ item['name'] }}" style="height:40px;vertical-align:middle;">
-            {% endif %}
-            <a href="/delete_item/{{ item['id'] }}">Sil</a>
-        </li>
-    {% endfor %}
-    </ul>
+    
+    <h2>Ürünler</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Ürün Adı</th>
+                <th>Kategori</th>
+                <th>Fiyat</th>
+                <th>İşlem</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+                <tr>
+                    <td>{{ item['name'] }}</td>
+                    <td>{{ item['category_name'] }}</td>
+                    <td>{{ item['price'] }} TL</td>
+                    <td><a href="/delete_item/{{ item['id'] }}">Sil</a></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
