@@ -129,24 +129,23 @@ async function renderAdmin(sessionId) {
     const categories = await db.collection('categories').find({}).toArray();
     const items = await db.collection('items').find({}).toArray();
     
-    // HTML şablonunu doldur
+    // HTML şablonunu oku
     let html = adminTemplate;
     
-    // Kategorileri ekle
-    let categoriesHtml = '';
+    // Jinja2 template ifadelerini temizle
+    html = html.replace(/\{\%.*?\%\}/g, '');
+    html = html.replace(/\{\{.*?\}\}/g, '');
+    
+    // Kategori seçim listesini oluştur
+    let categoriesOptions = '';
     categories.forEach(category => {
-      categoriesHtml += `<option value="${category._id}">${category.name}</option>`;
+      categoriesOptions += `<option value="${category._id}">${category.name}</option>`;
     });
     
-    // Kategorileri HTML içine yerleştir
-    html = html.replace('{% for category in categories %}', '')
-               .replace('{% endfor %}', '')
-               .replace('{{ category.name }}', '')
-               .replace('{{ category._id }}', '');
+    // Kategori seçim listesini HTML'e ekle
+    html = html.replace('<!-- CATEGORIES_OPTIONS -->', categoriesOptions);
     
-    html = html.replace('<!-- CATEGORIES_OPTIONS -->', categoriesHtml);
-    
-    // Ürünleri ekle
+    // Ürün listesini oluştur
     let itemsHtml = '';
     items.forEach(item => {
       let categoryName = 'Bilinmeyen Kategori';
@@ -176,10 +175,10 @@ async function renderAdmin(sessionId) {
       `;
     });
     
-    // Ürünleri HTML içine yerleştir
+    // Ürün listesini HTML'e ekle
     html = html.replace('<!-- ITEMS_LIST -->', itemsHtml);
     
-    // Kategori listesini ekle
+    // Kategori listesini oluştur
     let categoryListHtml = '';
     categories.forEach(category => {
       categoryListHtml += `
@@ -190,8 +189,18 @@ async function renderAdmin(sessionId) {
       `;
     });
     
-    // Kategori listesini HTML içine yerleştir
+    // Kategori listesini HTML'e ekle
     html = html.replace('<!-- CATEGORIES_LIST -->', categoryListHtml);
+    
+    // Debug bilgisi ekle
+    const debugInfo = `
+      <!-- 
+      Debug Bilgisi:
+      Kategori Sayısı: ${categories.length}
+      Ürün Sayısı: ${items.length}
+      -->
+    `;
+    html = html.replace('</body>', `${debugInfo}</body>`);
     
     return {
       statusCode: 200,
@@ -201,6 +210,7 @@ async function renderAdmin(sessionId) {
       body: html
     };
   } catch (error) {
+    console.error('Admin sayfası render hatası:', error);
     return {
       statusCode: 500,
       body: `Hata: ${error.message}`
