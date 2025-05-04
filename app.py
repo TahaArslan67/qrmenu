@@ -4,8 +4,15 @@ import os
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from gridfs import GridFS
-from PIL import Image
 import io
+
+# Conditionally import PIL
+PIL_AVAILABLE = False
+try:
+    from PIL import Image
+    PIL_AVAILABLE = True
+except ImportError:
+    print("PIL/Pillow not available. Image processing features will be disabled.")
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Bunu değiştir!
@@ -131,9 +138,18 @@ def get_image(image_id):
 
 @app.route('/image/small/<image_id>')
 def get_small_image(image_id):
+    if not PIL_AVAILABLE:
+        # If PIL is not available, just return the original image
+        return get_image(image_id)
     try:
         image_file = gfs.get(ObjectId(image_id))
-        response = app.response_class(image_file.read(), mimetype=image_file.content_type)
+        img = Image.open(io.BytesIO(image_file.read()))
+        img = img.convert('RGB')
+        img.thumbnail((200, 200))
+        img_byte_arr = io.BytesIO()
+        img.save(img_byte_arr, format='JPEG', quality=70)
+        img_byte_arr.seek(0)
+        response = app.response_class(img_byte_arr.read(), mimetype='image/jpeg')
         response.headers['Cache-Control'] = 'public, max-age=604800'
         return response
     except Exception as e:
@@ -141,6 +157,9 @@ def get_small_image(image_id):
 
 @app.route('/image/blur/<image_id>')
 def get_blur_image(image_id):
+    if not PIL_AVAILABLE:
+        # If PIL is not available, just return the original image
+        return get_image(image_id)
     try:
         image_file = gfs.get(ObjectId(image_id))
         img = Image.open(io.BytesIO(image_file.read()))
