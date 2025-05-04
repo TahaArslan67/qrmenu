@@ -1,6 +1,5 @@
-flask
-werkzeug
-pymongo
-Flask
-serverless-wsgi
-Pillow
+flask==2.0.1
+werkzeug==2.0.1
+pymongo==4.1.1
+Pillow==9.0.0
+serverless-wsgi==3.0.1
