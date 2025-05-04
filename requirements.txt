@@ -3,3 +3,4 @@ werkzeug
 pymongo
 Flask
 serverless-wsgi
+Pillow
