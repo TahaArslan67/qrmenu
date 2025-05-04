@@ -14,7 +14,8 @@ app.config['UPLOAD_FOLDER'] = '../static/uploads/'
 # MongoDB bağlantısı
 MONGO_URI = os.environ.get('MONGODB_URI')
 if not MONGO_URI:
-    MONGO_URI = 'mongodb+srv://arslantaha67:0022800228t@panel.gjn1k.mongodb.net/'
+    # SRV URI yerine standart URI kullan
+    MONGO_URI = 'mongodb://arslantaha67:0022800228t@panel.gjn1k.mongodb.net:27017/?retryWrites=true&w=majority'
 client = MongoClient(MONGO_URI)
 db = client['qrmenu']
 categories_col = db['categories']
