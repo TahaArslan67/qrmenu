@@ -152,12 +152,22 @@ class handler(BaseHTTPRequestHandler):
                     
                     for item in items:
                         if str(item.get('category_id')) == str(category['_id']):
-                            # Ürün resmi için placeholder
-                            img_url = f"https://i.ibb.co/Jj9q7Nf/pide-bg.jpg"
+                            # Ürün adından resim URL'si oluştur
+                            img_base = item['name'].lower().replace(' ', '_')
+                            img_url = f"https://raw.githubusercontent.com/arslantaha67/qrmenu-images/main/{img_base}.jpg"
+                            
+                            # Eğer özel ürün resmi yoksa, kategori bazlı varsayılan resim kullan
+                            if category["name"] == "Ana Yemekler":
+                                default_img = "https://i.ibb.co/9HBkjpw/kasarli-pide.jpg"
+                            elif category["name"] == "Tatlılar":
+                                default_img = "https://i.ibb.co/Jm5DLKT/kunefe.jpg"
+                            else:
+                                default_img = "https://i.ibb.co/9HBkjpw/kasarli-pide.jpg"
+                            
                             response += f"""
                             <div class="menu-item">
                                 <div class="menu-item-left">
-                                    <img src="{img_url}" class="menu-item-img" alt="{item['name']}">
+                                    <img src="{img_url}" class="menu-item-img" alt="{item['name']}" onerror="this.src='{default_img}'">
                                     <div class="menu-item-name">{item['name']}</div>
                                 </div>
                                 <div class="menu-item-price">{item['price']} ₺</div>
