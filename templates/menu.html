@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Menü</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css?family=Pacifico&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Quicksand:400,700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="menu-container">
+        <div class="menu-header">Gözde Pide Menü</div>
+        <div class="menu-section">
+            {% for category in categories %}
+                <div class="menu-section-title" data-category="{{ category['name'] }}">{{ category['name'] }}</div>
+                <ul class="menu-list">
+                    {% for item in items %}
+                        {% if item['category_id'] == category['_id'] %}
+                        <li class="menu-item-row">
+                            <div class="menu-item-info">
+                                <span class="menu-item-name">{{ item['name'] }}</span>
+                            </div>
+                            <span class="menu-item-price">{{ '%.0f' % item['price'] }} ₺</span>
+                            <img src="{{ item['img_url'] }}" class="menu-img-thumb" alt="{{ item['name'] }}">
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        </div>
+        <div class="menu-footer">Afiyet olsun!</div>
+    </div>
+</body>
+</html>
