@@ -181,6 +181,7 @@ if __name__ == '__main__':
         os.makedirs('static/uploads/')
     app.run(debug=True)
 
+# Vercel için serverless_wsgi entegrasyonu
 import serverless_wsgi
 
 def handler(event, context):
