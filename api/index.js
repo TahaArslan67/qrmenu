@@ -10,7 +10,7 @@ const cookie = require('cookie');
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://arslantaha67:0022800228t@panel.gjn1k.mongodb.net:27017/?retryWrites=true&w=majority';
 
 // HTML şablonları
-const menuTemplate = fs.readFileSync(path.join(__dirname, '../templates/menu.html'), 'utf8');
+const menuTemplate = fs.readFileSync(path.join(__dirname, '../templates/menu_new.html'), 'utf8');
 const adminTemplate = fs.readFileSync(path.join(__dirname, '../templates/admin_new.html'), 'utf8');
 const loginTemplate = fs.readFileSync(path.join(__dirname, '../templates/login.html'), 'utf8');
 
@@ -42,10 +42,6 @@ async function renderMenu() {
     // HTML şablonunu oku
     let html = menuTemplate;
     
-    // Template ifadelerini temizle
-    html = html.replace(/\{\%.*?\%\}/g, '');
-    html = html.replace(/\{\{.*?\}\}/g, '');
-    
     // Kategorileri ve ürünleri ekle
     let menuContent = '';
     
@@ -73,7 +69,7 @@ async function renderMenu() {
                   <span class="menu-item-name">${item.name}</span>
                 </div>
                 <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
-                <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}">
+                <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.src='/static/uploads/pide_bg.jpg'">
               </li>
             `;
           });
@@ -82,11 +78,11 @@ async function renderMenu() {
         menuContent += '</ul>';
       });
     } else {
-      menuContent = '<p>Henüz kategori bulunmamaktadır.</p>';
+      menuContent = '<p class="no-items">Henüz kategori bulunmamaktadır.</p>';
     }
     
     // Menü içeriğini HTML'e ekle
-    html = html.replace('<div class="menu-section">', `<div class="menu-section">${menuContent}`);
+    html = html.replace('<!-- MENU_CONTENT -->', menuContent);
     
     return {
       statusCode: 200,
