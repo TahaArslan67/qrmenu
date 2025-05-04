@@ -1,0 +1,12 @@
+{
+  "name": "qrmenu",
+  "version": "1.0.0",
+  "description": "QR Menu for Gözde Pide",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "mongodb": "^4.1.1"
+  }
+}
