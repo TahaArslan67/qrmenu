@@ -4,7 +4,6 @@ import os
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from gridfs import GridFS
-from PIL import Image
 import io
 import serverless_wsgi
 
@@ -132,24 +131,6 @@ def get_small_image(image_id):
     try:
         image_file = gfs.get(ObjectId(image_id))
         response = app.response_class(image_file.read(), mimetype=image_file.content_type)
-        response.headers['Cache-Control'] = 'public, max-age=604800'
-        return response
-    except Exception as e:
-        return '', 404
-
-@app.route('/image/blur/<image_id>')
-def get_blur_image(image_id):
-    try:
-        image_file = gfs.get(ObjectId(image_id))
-        img = Image.open(io.BytesIO(image_file.read()))
-        img = img.convert('RGB')
-        img.thumbnail((16, 16))  # Çok küçük boyut
-        img = img.resize((80, 80), Image.BILINEAR)
-        img = img.filter(Image.BLUR)
-        img_byte_arr = io.BytesIO()
-        img.save(img_byte_arr, format='JPEG', quality=30)
-        img_byte_arr.seek(0)
-        response = app.response_class(img_byte_arr.read(), mimetype='image/jpeg')
         response.headers['Cache-Control'] = 'public, max-age=604800'
         return response
     except Exception as e:
