@@ -1,7 +1,9 @@
 flask==2.0.1
 werkzeug==2.0.1
 pymongo[srv]==4.1.1
-Pillow-SIMD==9.0.0.post0
-serverless-wsgi==3.0.1
 dnspython==2.2.1
+serverless-wsgi==3.0.1
 gunicorn==20.1.0
+jinja2==3.0.1
+itsdangerous==2.0.1
+markupsafe==2.0.1
