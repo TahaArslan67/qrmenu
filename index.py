@@ -37,7 +37,7 @@ class handler(BaseHTTPRequestHandler):
                 
                 body {
                   font-family: 'Quicksand', Arial, sans-serif;
-                  background: #fff url('https://i.imgur.com/JfVcQQd.jpg') center center/cover no-repeat fixed;
+                  background: #fff url('https://i.ibb.co/Jj9q7Nf/pide-bg.jpg') center center/cover no-repeat fixed;
                   margin: 0;
                   padding: 0;
                   min-height: 100vh;
@@ -48,7 +48,7 @@ class handler(BaseHTTPRequestHandler):
                   margin: 38px auto 28px auto;
                   background: rgba(255,255,255,0.95);
                   border-radius: 28px;
-                  box-shadow: 0 6px 36px #eee, 0 2px 0 #fff6;
+                  box-shadow: 0 6px 36px rgba(0,0,0,0.2);
                   border: 2px solid #eee;
                   overflow: hidden;
                   padding: 20px;
@@ -56,14 +56,14 @@ class handler(BaseHTTPRequestHandler):
                 
                 .menu-header {
                   background: #fff;
-                  padding: 26px 0 12px 36px;
+                  padding: 26px 0 12px 0;
                   color: #111;
                   font-size: 2.1rem;
                   font-family: 'Pacifico', cursive, Arial, sans-serif;
                   font-weight: 400;
                   letter-spacing: 2.5px;
                   border-bottom: 2px solid #eee;
-                  box-shadow: 0 2px 8px #eee2;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
                   text-shadow: 0 1px 0 #fff, 0 1px 0 #eee;
                   text-align: center;
                   margin-bottom: 20px;
@@ -89,6 +89,13 @@ class handler(BaseHTTPRequestHandler):
                   align-items: center;
                   padding: 12px 0;
                   border-bottom: 2px dashed #eee;
+                  margin-bottom: 10px;
+                }
+                
+                .menu-item-left {
+                  display: flex;
+                  align-items: center;
+                  gap: 15px;
                 }
                 
                 .menu-item-name {
@@ -106,6 +113,22 @@ class handler(BaseHTTPRequestHandler):
                   border-radius: 8px;
                   padding: 2px 10px;
                   border: 1.5px solid #eee;
+                  margin-left: auto;
+                }
+                
+                .menu-item-img {
+                  width: 120px;
+                  height: 90px;
+                  object-fit: cover;
+                  border-radius: 13px;
+                  border: 2px solid #eee;
+                  background: #fff;
+                  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+                }
+                
+                @media (max-width: 500px) {
+                  .menu-container { max-width: 100vw; margin: 0; border-radius: 0; }
+                  .menu-item-img { width: 80px; height: 60px; }
                 }
                 </style>
                 """
@@ -129,9 +152,14 @@ class handler(BaseHTTPRequestHandler):
                     
                     for item in items:
                         if str(item.get('category_id')) == str(category['_id']):
+                            # Ürün resmi için placeholder
+                            img_url = f"https://i.ibb.co/Jj9q7Nf/pide-bg.jpg"
                             response += f"""
                             <div class="menu-item">
-                                <div class="menu-item-name">{item['name']}</div>
+                                <div class="menu-item-left">
+                                    <img src="{img_url}" class="menu-item-img" alt="{item['name']}">
+                                    <div class="menu-item-name">{item['name']}</div>
+                                </div>
                                 <div class="menu-item-price">{item['price']} ₺</div>
                             </div>
                             """
