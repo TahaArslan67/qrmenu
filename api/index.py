@@ -14,6 +14,8 @@ app.config['UPLOAD_FOLDER'] = '../static/uploads/'
 
 # MongoDB bağlantısı
 MONGO_URI = os.environ.get('MONGODB_URI')
+if not MONGO_URI:
+    MONGO_URI = 'mongodb+srv://arslantaha67:0022800228t@panel.gjn1k.mongodb.net/'
 client = MongoClient(MONGO_URI)
 db = client['qrmenu']
 categories_col = db['categories']
@@ -22,20 +24,16 @@ gfs = GridFS(db)
 
 @app.route('/')
 def menu():
-    categories = list(categories_col.find())
-    items = list(items_col.find())
-    # Her ürün için uygun görsel yolunu belirle
-    for item in items:
-        img_base = item['name'].lower().replace(' ', '_')
-        jpg_path = os.path.join('static', 'uploads', img_base + '.jpg')
-        png_path = os.path.join('static', 'uploads', img_base + '.png')
-        if os.path.exists(jpg_path):
+    try:
+        categories = list(categories_col.find())
+        items = list(items_col.find())
+        # Her ürün için uygun görsel yolunu belirle
+        for item in items:
+            img_base = item['name'].lower().replace(' ', '_')
             item['img_url'] = '/static/uploads/' + img_base + '.jpg'
-        elif os.path.exists(png_path):
-            item['img_url'] = '/static/uploads/' + img_base + '.png'
-        else:
-            item['img_url'] = '/static/uploads/placeholder.png'
-    return render_template('menu.html', categories=categories, items=items)
+        return render_template('menu.html', categories=categories, items=items)
+    except Exception as e:
+        return str(e), 500
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
