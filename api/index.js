@@ -365,11 +365,11 @@ function renderLogin(message = '') {
 
 // Admin sayfası
 async function renderAdmin(sessionId) {
-  // Önce oturum kontrolü
+  // Oturum kontrolü ekleyelim
   if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
     console.log('Admin sayfasına erişim reddedildi - oturum yok veya geçersiz');
     
-    // Doğrudan login sayfasına yönlendir
+    // Login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -446,14 +446,6 @@ async function renderAdmin(sessionId) {
     // Ürün listesini HTML'e ekle
     html = html.replace('<!-- ITEMS_LIST -->', itemsHtml);
     
-    // Debug bilgisi ekle
-    const debugInfo = `
-      <script>
-        console.log('Sunucudan gelen kategori verileri:', ${JSON.stringify(categories)});
-      </script>
-    `;
-    html = html.replace('</body>', `${debugInfo}</body>`);
-    
     return {
       statusCode: 200,
       headers: {
@@ -472,34 +464,53 @@ async function renderAdmin(sessionId) {
 
 // Login işlemi
 async function handleLogin(body) {
-  const params = querystring.parse(body);
-  const { username, password } = params;
+  console.log('HandleLogin fonksiyonuna gelen veri:', body);
+  
+  // Kullanıcı adı ve şifreyi parse et
+  let username, password;
+  
+  if (typeof body === 'string') {
+    // URL kodlu form verisi
+    const params = querystring.parse(body);
+    username = params.username;
+    password = params.password;
+  } else {
+    // Nesne olarak gelmiş olabilir
+    username = body.username;
+    password = body.password;
+  }
+  
+  console.log('Parse edilmiş giriş bilgileri:', username, password);
   
   if (username === 'admin' && password === 'admin123') {
     // Oturum oluştur
     const sessionId = crypto.randomBytes(16).toString('hex');
-    sessions[sessionId] = { admin: true };
+    sessions[sessionId] = { admin: true, created: Date.now() };
+    
+    console.log('Oturum oluşturuldu:', sessionId);
+    console.log('Aktif oturumlar:', sessions);
     
     return {
       statusCode: 302,
       headers: {
         'Location': '/admin',
-        'Set-Cookie': `sessionId=${sessionId}; Path=/; HttpOnly`
+        'Set-Cookie': `sessionId=${sessionId}; Path=/; HttpOnly; SameSite=Strict`
       },
       body: 'Redirecting to admin...'
     };
   } else {
+    console.log('Geçersiz giriş bilgileri');
     return renderLogin('Kullanıcı adı veya şifre yanlış!');
   }
 }
 
 // Ürün ekleme
 async function handleAddItem(body, sessionId) {
-  // Önce oturum kontrolü
+  // Oturum kontrolü
   if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
     console.log('Ürün ekleme reddedildi - oturum yok veya geçersiz');
     
-    // Doğrudan login sayfasına yönlendir
+    // Login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -528,7 +539,11 @@ async function handleAddItem(body, sessionId) {
     // Kategori ID'si doğrulama
     let categoryObjId;
     try {
-      categoryObjId = new ObjectId(category_id);
+      if (!useLocalData) {
+        categoryObjId = new ObjectId(category_id);
+      } else {
+        categoryObjId = category_id;
+      }
     } catch (err) {
       console.error('Geçersiz kategori ID:', category_id, err);
       return {
@@ -562,11 +577,11 @@ async function handleAddItem(body, sessionId) {
 
 // Kategori ekleme
 async function handleAddCategory(body, sessionId) {
-  // Önce oturum kontrolü
+  // Oturum kontrolü
   if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
     console.log('Kategori ekleme reddedildi - oturum yok veya geçersiz');
     
-    // Doğrudan login sayfasına yönlendir
+    // Login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -589,7 +604,10 @@ async function handleAddCategory(body, sessionId) {
   
   try {
     const db = await connectToDatabase();
-    const result = await db.collection('categories').insertOne({ name });
+    
+    const result = await db.collection('categories').insertOne({
+      name
+    });
     
     return {
       statusCode: 302,
@@ -609,11 +627,11 @@ async function handleAddCategory(body, sessionId) {
 
 // Ürün silme
 async function handleDeleteItem(itemId, sessionId) {
-  // Önce oturum kontrolü
+  // Oturum kontrolü
   if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
     console.log('Ürün silme reddedildi - oturum yok veya geçersiz');
     
-    // Doğrudan login sayfasına yönlendir
+    // Login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -627,18 +645,32 @@ async function handleDeleteItem(itemId, sessionId) {
   try {
     const db = await connectToDatabase();
     
-    // Item ID'si doğrulama
+    // Ürün ID'si doğrulama
     let itemObjId;
     try {
-      itemObjId = new ObjectId(itemId);
+      if (!useLocalData) {
+        itemObjId = new ObjectId(itemId);
+      } else {
+        itemObjId = itemId;
+      }
     } catch (err) {
+      console.error('Geçersiz ürün ID:', itemId, err);
       return {
         statusCode: 400,
         body: `Hata: Geçersiz ürün ID'si.`
       };
     }
     
-    const result = await db.collection('items').deleteOne({ _id: itemObjId });
+    const result = await db.collection('items').deleteOne({
+      _id: itemObjId
+    });
+    
+    if (result.deletedCount === 0) {
+      return {
+        statusCode: 404,
+        body: 'Hata: Ürün bulunamadı.'
+      };
+    }
     
     return {
       statusCode: 302,
@@ -658,11 +690,11 @@ async function handleDeleteItem(itemId, sessionId) {
 
 // Kategori silme
 async function handleDeleteCategory(categoryId, sessionId) {
-  // Önce oturum kontrolü
+  // Oturum kontrolü
   if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
     console.log('Kategori silme reddedildi - oturum yok veya geçersiz');
     
-    // Doğrudan login sayfasına yönlendir
+    // Login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -679,16 +711,35 @@ async function handleDeleteCategory(categoryId, sessionId) {
     // Kategori ID'si doğrulama
     let categoryObjId;
     try {
-      categoryObjId = new ObjectId(categoryId);
+      if (!useLocalData) {
+        categoryObjId = new ObjectId(categoryId);
+      } else {
+        categoryObjId = categoryId;
+      }
     } catch (err) {
+      console.error('Geçersiz kategori ID:', categoryId, err);
       return {
         statusCode: 400,
         body: `Hata: Geçersiz kategori ID'si.`
       };
     }
     
-    await db.collection('categories').deleteOne({ _id: categoryObjId });
-    await db.collection('items').deleteMany({ category_id: categoryObjId });
+    const categoryResult = await db.collection('categories').deleteOne({
+      _id: categoryObjId
+    });
+    
+    if (categoryResult.deletedCount === 0) {
+      return {
+        statusCode: 404,
+        body: 'Hata: Kategori bulunamadı.'
+      };
+    }
+    
+    const itemsResult = await db.collection('items').deleteMany({
+      category_id: categoryObjId
+    });
+    
+    console.log(`Kategori ve ${itemsResult.deletedCount} ürün silindi.`);
     
     return {
       statusCode: 302,
@@ -748,26 +799,19 @@ module.exports = async (req, res) => {
   console.log('Oturum ID:', sessionId);
   console.log('Oturumlar:', sessions);
 
-  // Admin sayfası
+  // Admin sayfası - Oturum gerektiren erişim
   if (url === '/admin' || url.startsWith('/admin/')) {
-    // Önce oturum kontrolü
-    if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
-      console.log('Admin sayfasına erişim reddedildi - oturum yok veya geçersiz');
-      
-      // Doğrudan login sayfasına yönlendir
-      res.writeHead(302, {
-        'Location': '/login'
-      });
-      return res.end('Redirecting to login...');
-    }
-    
-    console.log('Admin sayfasına erişim onaylandı');
     const result = await renderAdmin(sessionId);
     
     // Başlıkları ve durumu ayarla
     Object.entries(result.headers || {}).forEach(([key, value]) => {
       res.setHeader(key, value);
     });
+    
+    // Yönlendirme varsa, doğru şekilde ayarla
+    if (result.headers && result.headers['Location']) {
+      return res.writeHead(302, { 'Location': result.headers['Location'] }).end(result.body);
+    }
     
     return res.status(result.statusCode).end(result.body);
   }
@@ -809,25 +853,28 @@ module.exports = async (req, res) => {
       req.on('end', async () => {
         console.log('Login POST verisi:', body);
         
-        const formData = querystring.parse(body);
-        console.log('Ayrıştırılmış login verileri:', formData);
-        
-        const result = await handleLogin(formData);
-        
-        // Çerezleri ve yönlendirmeyi düzgün şekilde ayarla
-        if (result.headers && result.headers['Set-Cookie']) {
-          res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
+        try {
+          const formData = querystring.parse(body);
+          console.log('Ayrıştırılmış login verileri:', formData);
+          
+          const result = await handleLogin(formData);
+          
+          // Çerezleri ve yönlendirmeyi düzgün şekilde ayarla
+          if (result.headers && result.headers['Set-Cookie']) {
+            res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
+          }
+          
+          if (result.headers && result.headers['Location']) {
+            return res.writeHead(302, {
+              'Location': result.headers['Location']
+            }).end(result.body);
+          } else {
+            return res.status(result.statusCode).end(result.body);
+          }
+        } catch (error) {
+          console.error('Login hatası:', error);
+          return res.status(500).end('Giriş işlemi sırasında hata oluştu');
         }
-        
-        if (result.headers && result.headers['Location']) {
-          res.writeHead(302, {
-            'Location': result.headers['Location']
-          });
-        } else {
-          res.writeHead(result.statusCode);
-        }
-        
-        return res.end(result.body);
       });
       
       return;
@@ -837,9 +884,15 @@ module.exports = async (req, res) => {
   // Çıkış yapma
   if (url === '/logout') {
     const result = handleLogout();
-    res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
-    res.setHeader('Location', result.headers['Location']);
-    return res.status(result.statusCode).end(result.body);
+    
+    // Çerezleri ve yönlendirmeyi düzgün şekilde ayarla
+    if (result.headers && result.headers['Set-Cookie']) {
+      res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
+    }
+    
+    return res.writeHead(302, {
+      'Location': result.headers['Location']
+    }).end(result.body);
   }
   
   // Ürün ekleme
@@ -854,7 +907,9 @@ module.exports = async (req, res) => {
       const result = await handleAddItem(formData, sessionId);
       
       if (result.headers && result.headers['Location']) {
-        res.setHeader('Location', result.headers['Location']);
+        return res.writeHead(302, {
+          'Location': result.headers['Location']
+        }).end(result.body);
       }
       
       return res.status(result.statusCode).end(result.body);
@@ -875,7 +930,9 @@ module.exports = async (req, res) => {
       const result = await handleAddCategory(formData, sessionId);
       
       if (result.headers && result.headers['Location']) {
-        res.setHeader('Location', result.headers['Location']);
+        return res.writeHead(302, {
+          'Location': result.headers['Location']
+        }).end(result.body);
       }
       
       return res.status(result.statusCode).end(result.body);
@@ -890,7 +947,9 @@ module.exports = async (req, res) => {
     const result = await handleDeleteItem(itemId, sessionId);
     
     if (result.headers && result.headers['Location']) {
-      res.setHeader('Location', result.headers['Location']);
+      return res.writeHead(302, {
+        'Location': result.headers['Location']
+      }).end(result.body);
     }
     
     return res.status(result.statusCode).end(result.body);
@@ -902,7 +961,9 @@ module.exports = async (req, res) => {
     const result = await handleDeleteCategory(categoryId, sessionId);
     
     if (result.headers && result.headers['Location']) {
-      res.setHeader('Location', result.headers['Location']);
+      return res.writeHead(302, {
+        'Location': result.headers['Location']
+      }).end(result.body);
     }
     
     return res.status(result.statusCode).end(result.body);
