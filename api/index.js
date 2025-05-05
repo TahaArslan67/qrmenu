@@ -521,15 +521,35 @@ async function handleAddItem(body, sessionId) {
   }
   
   console.log('Ürün ekleme onaylandı');
-  const params = querystring.parse(body);
-  const { name, description, price, category_id } = params;
+  console.log('Ürün ekleme verileri:', body);
   
-  console.log('Ürün ekleme parametreleri:', { name, description, price, category_id });
+  // Form verilerini kontrol et
+  let name, description, price, category_id;
+  
+  if (typeof body === 'string') {
+    // URL kodlu form verisi
+    const params = querystring.parse(body);
+    name = params.name;
+    description = params.description;
+    price = params.price;
+    category_id = params.category_id;
+  } else {
+    // Veri zaten ayrıştırılmış nesne olarak gelmiş
+    name = body.name;
+    description = body.description;
+    price = body.price;
+    category_id = body.category_id;
+  }
+  
+  console.log('İşlenmiş ürün ekleme parametreleri:', { name, description, price, category_id });
   
   if (!name || !price || !category_id) {
     return {
       statusCode: 400,
-      body: 'Hata: Ürün adı, fiyatı ve kategori gereklidir.'
+      body: 'Hata: Ürün adı, fiyatı ve kategori gereklidir.',
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     };
   }
   
@@ -548,7 +568,10 @@ async function handleAddItem(body, sessionId) {
       console.error('Geçersiz kategori ID:', category_id, err);
       return {
         statusCode: 400,
-        body: `Hata: Geçersiz kategori ID'si. Lütfen geçerli bir kategori seçin.`
+        body: `Hata: Geçersiz kategori ID'si. Lütfen geçerli bir kategori seçin.`,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8'
+        }
       };
     }
     
@@ -570,7 +593,10 @@ async function handleAddItem(body, sessionId) {
     console.error('Ürün ekleme hatası:', error);
     return {
       statusCode: 500,
-      body: `Hata: ${error.message}`
+      body: `Hata: ${error.message}`,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     };
   }
 }
@@ -592,13 +618,29 @@ async function handleAddCategory(body, sessionId) {
   }
   
   console.log('Kategori ekleme onaylandı');
-  const params = querystring.parse(body);
-  const { name } = params;
+  console.log('Kategori ekleme verileri:', body);
+  
+  // Form verilerini kontrol et
+  let name;
+  
+  if (typeof body === 'string') {
+    // URL kodlu form verisi
+    const params = querystring.parse(body);
+    name = params.name;
+  } else {
+    // Veri zaten ayrıştırılmış nesne olarak gelmiş
+    name = body.name;
+  }
+  
+  console.log('Kategori adı:', name);
   
   if (!name) {
     return {
       statusCode: 400,
-      body: 'Hata: Kategori adı gereklidir.'
+      body: 'Hata: Kategori adı gereklidir.',
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     };
   }
   
@@ -620,7 +662,10 @@ async function handleAddCategory(body, sessionId) {
     console.error('Kategori ekleme hatası:', error);
     return {
       statusCode: 500,
-      body: `Hata: ${error.message}`
+      body: `Hata: ${error.message}`,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     };
   }
 }
@@ -657,7 +702,10 @@ async function handleDeleteItem(itemId, sessionId) {
       console.error('Geçersiz ürün ID:', itemId, err);
       return {
         statusCode: 400,
-        body: `Hata: Geçersiz ürün ID'si.`
+        body: `Hata: Geçersiz ürün ID'si.`,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8'
+        }
       };
     }
     
@@ -668,7 +716,10 @@ async function handleDeleteItem(itemId, sessionId) {
     if (result.deletedCount === 0) {
       return {
         statusCode: 404,
-        body: 'Hata: Ürün bulunamadı.'
+        body: 'Hata: Ürün bulunamadı.',
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8'
+        }
       };
     }
     
@@ -683,7 +734,10 @@ async function handleDeleteItem(itemId, sessionId) {
     console.error('Ürün silme hatası:', error);
     return {
       statusCode: 500,
-      body: `Hata: ${error.message}`
+      body: `Hata: ${error.message}`,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     };
   }
 }
@@ -720,7 +774,10 @@ async function handleDeleteCategory(categoryId, sessionId) {
       console.error('Geçersiz kategori ID:', categoryId, err);
       return {
         statusCode: 400,
-        body: `Hata: Geçersiz kategori ID'si.`
+        body: `Hata: Geçersiz kategori ID'si.`,
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8'
+        }
       };
     }
     
@@ -731,7 +788,10 @@ async function handleDeleteCategory(categoryId, sessionId) {
     if (categoryResult.deletedCount === 0) {
       return {
         statusCode: 404,
-        body: 'Hata: Kategori bulunamadı.'
+        body: 'Hata: Kategori bulunamadı.',
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8'
+        }
       };
     }
     
@@ -752,7 +812,10 @@ async function handleDeleteCategory(categoryId, sessionId) {
     console.error('Kategori silme hatası:', error);
     return {
       statusCode: 500,
-      body: `Hata: ${error.message}`
+      body: `Hata: ${error.message}`,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      }
     };
   }
 }
@@ -771,8 +834,8 @@ function handleLogout() {
 
 // API handler
 module.exports = async (req, res) => {
+  const url = req.url;
   const method = req.method;
-  const { url } = req;
   
   // CSS ve diğer statik dosyalar için
   if (url.startsWith('/static/')) {
@@ -789,11 +852,10 @@ module.exports = async (req, res) => {
     }
   }
   
-  // Çerezleri al
+  // Cookies ve session ID'yi çıkar
   const cookies = cookie.parse(req.headers.cookie || '');
   const sessionId = cookies.sessionId;
   
-  // Test için konsola yazdır
   console.log('URL:', url);
   console.log('Metod:', method);
   console.log('Oturum ID:', sessionId);
@@ -854,6 +916,7 @@ module.exports = async (req, res) => {
         console.log('Login POST verisi:', body);
         
         try {
+          // Form verilerini ayrıştır ve handleLogin'e gönder
           const formData = querystring.parse(body);
           console.log('Ayrıştırılmış login verileri:', formData);
           
