@@ -365,8 +365,11 @@ function renderLogin(message = '') {
 
 // Admin sayfası
 async function renderAdmin(sessionId) {
-  // Oturum kontrolü
-  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+  // Önce oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Admin sayfasına erişim reddedildi - oturum yok veya geçersiz');
+    
+    // Doğrudan login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -376,6 +379,7 @@ async function renderAdmin(sessionId) {
     };
   }
   
+  console.log('Admin sayfasına erişim onaylandı');
   try {
     const db = await connectToDatabase();
     const categories = await db.collection('categories').find({}).toArray();
@@ -491,8 +495,11 @@ async function handleLogin(body) {
 
 // Ürün ekleme
 async function handleAddItem(body, sessionId) {
-  // Oturum kontrolü
-  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+  // Önce oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Ürün ekleme reddedildi - oturum yok veya geçersiz');
+    
+    // Doğrudan login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -502,6 +509,7 @@ async function handleAddItem(body, sessionId) {
     };
   }
   
+  console.log('Ürün ekleme onaylandı');
   const params = querystring.parse(body);
   const { name, description, price, category_id } = params;
   
@@ -554,8 +562,11 @@ async function handleAddItem(body, sessionId) {
 
 // Kategori ekleme
 async function handleAddCategory(body, sessionId) {
-  // Oturum kontrolü
-  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+  // Önce oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Kategori ekleme reddedildi - oturum yok veya geçersiz');
+    
+    // Doğrudan login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -565,6 +576,7 @@ async function handleAddCategory(body, sessionId) {
     };
   }
   
+  console.log('Kategori ekleme onaylandı');
   const params = querystring.parse(body);
   const { name } = params;
   
@@ -597,8 +609,11 @@ async function handleAddCategory(body, sessionId) {
 
 // Ürün silme
 async function handleDeleteItem(itemId, sessionId) {
-  // Oturum kontrolü
-  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+  // Önce oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Ürün silme reddedildi - oturum yok veya geçersiz');
+    
+    // Doğrudan login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -608,6 +623,7 @@ async function handleDeleteItem(itemId, sessionId) {
     };
   }
   
+  console.log('Ürün silme onaylandı');
   try {
     const db = await connectToDatabase();
     
@@ -642,8 +658,11 @@ async function handleDeleteItem(itemId, sessionId) {
 
 // Kategori silme
 async function handleDeleteCategory(categoryId, sessionId) {
-  // Oturum kontrolü
-  if (!sessions[sessionId] || !sessions[sessionId].admin) {
+  // Önce oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Kategori silme reddedildi - oturum yok veya geçersiz');
+    
+    // Doğrudan login sayfasına yönlendir
     return {
       statusCode: 302,
       headers: {
@@ -653,6 +672,7 @@ async function handleDeleteCategory(categoryId, sessionId) {
     };
   }
   
+  console.log('Kategori silme onaylandı');
   try {
     const db = await connectToDatabase();
     
@@ -722,6 +742,36 @@ module.exports = async (req, res) => {
   const cookies = cookie.parse(req.headers.cookie || '');
   const sessionId = cookies.sessionId;
   
+  // Test için konsola yazdır
+  console.log('URL:', url);
+  console.log('Metod:', method);
+  console.log('Oturum ID:', sessionId);
+  console.log('Oturumlar:', sessions);
+
+  // Admin sayfası
+  if (url === '/admin' || url.startsWith('/admin/')) {
+    // Önce oturum kontrolü
+    if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+      console.log('Admin sayfasına erişim reddedildi - oturum yok veya geçersiz');
+      
+      // Doğrudan login sayfasına yönlendir
+      res.writeHead(302, {
+        'Location': '/login'
+      });
+      return res.end('Redirecting to login...');
+    }
+    
+    console.log('Admin sayfasına erişim onaylandı');
+    const result = await renderAdmin(sessionId);
+    
+    // Başlıkları ve durumu ayarla
+    Object.entries(result.headers || {}).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
+    
+    return res.status(result.statusCode).end(result.body);
+  }
+  
   // Ana sayfa (kategoriler)
   if (url === '/' || url === '') {
     const result = await renderIndex();
@@ -745,6 +795,8 @@ module.exports = async (req, res) => {
   
   // Login sayfası
   if (url === '/login') {
+    console.log('Login sayfası isteği:', method);
+    
     if (method === 'GET') {
       const result = renderLogin();
       return res.status(result.statusCode).end(result.body);
@@ -755,28 +807,31 @@ module.exports = async (req, res) => {
       });
       
       req.on('end', async () => {
+        console.log('Login POST verisi:', body);
+        
         const formData = querystring.parse(body);
+        console.log('Ayrıştırılmış login verileri:', formData);
+        
         const result = await handleLogin(formData);
         
+        // Çerezleri ve yönlendirmeyi düzgün şekilde ayarla
         if (result.headers && result.headers['Set-Cookie']) {
           res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
         }
         
         if (result.headers && result.headers['Location']) {
-          res.setHeader('Location', result.headers['Location']);
+          res.writeHead(302, {
+            'Location': result.headers['Location']
+          });
+        } else {
+          res.writeHead(result.statusCode);
         }
         
-        return res.status(result.statusCode).end(result.body);
+        return res.end(result.body);
       });
       
       return;
     }
-  }
-  
-  // Admin sayfası
-  if (url === '/admin') {
-    const result = await renderAdmin(sessionId);
-    return res.status(result.statusCode).end(result.body);
   }
   
   // Çıkış yapma

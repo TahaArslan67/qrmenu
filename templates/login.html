@@ -3,24 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Yönetici Girişi</title>
+    <title>Gözde Pide - Yönetici Girişi</title>
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .login-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            padding: 30px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 {
+            font-family: 'Pacifico', cursive;
+            color: #d35400;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #d35400;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: #a04000;
+        }
+
+        .alert {
+            background-color: #ffecb3;
+            color: #7f5400;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 1px solid #e6d08d;
+        }
+
+        .auto-login {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .auto-login a {
+            color: #d35400;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
-    <h1>Yönetici Girişi</h1>
-    <form method="post">
-        <input type="text" name="username" placeholder="Kullanıcı Adı" required><br>
-        <input type="password" name="password" placeholder="Şifre" required><br>
-        <button type="submit">Giriş Yap</button>
-    </form>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <ul>
-        {% for message in messages %}
-          <li>{{ message }}</li>
-        {% endfor %}
-        </ul>
-      {% endif %}
-    {% endwith %}
+    <div class="login-container">
+        <h1>Yönetici Girişi</h1>
+        <form method="post" id="login-form">
+            <div class="input-group">
+                <input type="text" name="username" id="username" placeholder="Kullanıcı Adı" required>
+                <input type="password" name="password" id="password" placeholder="Şifre" required>
+            </div>
+            <button type="submit">Giriş Yap</button>
+        </form>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <ul class="alert">
+            {% for message in messages %}
+              <li>{{ message }}</li>
+            {% endfor %}
+            </ul>
+          {% endif %}
+        {% endwith %}
+
+        <div class="auto-login">
+            <p>Hızlı giriş: <a href="#" id="auto-login-btn">Otomatik Giriş</a></p>
+        </div>
+    </div>
+
+    <script src="/static/admin_login.js"></script>
+    <script>
+        // Otomatik giriş işlemi
+        document.getElementById('auto-login-btn').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('username').value = 'admin';
+            document.getElementById('password').value = 'admin123';
+            document.getElementById('login-form').dispatchEvent(new Event('submit'));
+        });
+    </script>
 </body>
 </html>
