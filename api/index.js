@@ -438,7 +438,10 @@ async function renderAdmin(sessionId) {
           <td>${item.name}</td>
           <td>${categoryName}</td>
           <td>${parseFloat(item.price).toFixed(0)} ₺</td>
-          <td><a href="/delete_item/${item._id}" class="delete-btn">Sil</a></td>
+          <td>
+            <a href="#" class="edit-btn" onclick="editItem('${item._id}', '${item.name.replace(/'/g, "\\'")}', '${(item.description || '').replace(/'/g, "\\'")}', ${parseFloat(item.price).toFixed(0)}, '${item.category_id}')">Düzenle</a>
+            <a href="/delete_item/${item._id}" class="delete-btn">Sil</a>
+          </td>
         </tr>
       `;
     });
@@ -820,6 +823,101 @@ async function handleDeleteCategory(categoryId, sessionId) {
   }
 }
 
+// Ürün düzenleme
+async function handleEditItem(body, sessionId) {
+  // Oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Ürün düzenleme erişimi reddedildi - oturum yok veya geçersiz');
+    
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/login'
+      },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  console.log('Ürün düzenleme isteği:', body);
+  
+  try {
+    const db = await connectToDatabase();
+    
+    // Form verilerini al
+    const itemId = body.item_id;
+    const name = body.name;
+    const description = body.description || '';
+    const price = parseFloat(body.price);
+    const categoryId = body.category_id;
+    
+    // Veri kontrolü
+    if (!name || isNaN(price) || !categoryId) {
+      return {
+        statusCode: 400,
+        body: 'Geçersiz ürün bilgileri'
+      };
+    }
+    
+    // Kategori ID'sini ObjectId'ye dönüştür
+    let objCategoryId;
+    try {
+      objCategoryId = new ObjectId(categoryId);
+    } catch (e) {
+      // Eğer dönüştürülemezse, string olarak kullan
+      objCategoryId = categoryId;
+    }
+    
+    // Ürün ID'sini ObjectId'ye dönüştür
+    let objItemId;
+    try {
+      objItemId = new ObjectId(itemId);
+    } catch (e) {
+      return {
+        statusCode: 400,
+        body: 'Geçersiz ürün ID'
+      };
+    }
+    
+    // Ürünü güncelle
+    const result = await db.collection('items').updateOne(
+      { _id: objItemId },
+      { 
+        $set: { 
+          name: name,
+          description: description,
+          price: price,
+          category_id: categoryId
+        } 
+      }
+    );
+    
+    if (result.modifiedCount === 0) {
+      console.log('Ürün güncellenemedi:', result);
+      return {
+        statusCode: 404,
+        body: 'Ürün bulunamadı veya güncellenemedi'
+      };
+    }
+    
+    console.log('Ürün başarıyla güncellendi:', result);
+    
+    // Admin sayfasına yönlendir
+    return {
+      statusCode: 302,
+      headers: {
+        'Location': '/admin'
+      },
+      body: 'Redirecting to admin...'
+    };
+  } catch (error) {
+    console.error('Ürün düzenleme hatası:', error);
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
 // Çıkış yapma
 function handleLogout() {
   return {
@@ -1030,6 +1128,29 @@ module.exports = async (req, res) => {
     }
     
     return res.status(result.statusCode).end(result.body);
+  }
+  
+  // Ürün düzenleme
+  if (url === '/edit_item' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+      const formData = querystring.parse(body);
+      const result = await handleEditItem(formData, sessionId);
+      
+      if (result.headers && result.headers['Location']) {
+        return res.writeHead(302, {
+          'Location': result.headers['Location']
+        }).end(result.body);
+      }
+      
+      return res.status(result.statusCode).end(result.body);
+    });
+    
+    return;
   }
   
   // 404 - Sayfa bulunamadı

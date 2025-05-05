@@ -92,30 +92,8 @@
             </div>
             <button type="submit">Giriş Yap</button>
         </form>
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <ul class="alert">
-            {% for message in messages %}
-              <li>{{ message }}</li>
-            {% endfor %}
-            </ul>
-          {% endif %}
-        {% endwith %}
-
-        <div class="auto-login">
-            <p>Hızlı giriş: <a href="#" id="auto-login-btn">Otomatik Giriş</a></p>
-        </div>
     </div>
 
     <script src="/static/admin_login.js"></script>
-    <script>
-        // Otomatik giriş işlemi
-        document.getElementById('auto-login-btn').addEventListener('click', function(e) {
-            e.preventDefault();
-            document.getElementById('username').value = 'admin';
-            document.getElementById('password').value = 'admin123';
-            document.getElementById('login-form').dispatchEvent(new Event('submit'));
-        });
-    </script>
 </body>
 </html>

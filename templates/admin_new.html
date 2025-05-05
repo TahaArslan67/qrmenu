@@ -18,8 +18,9 @@
         button:hover { background: #45a049; }
         .delete-btn { color: white; text-decoration: none; background-color: #f44336; padding: 6px 10px; border-radius: 4px; }
         .delete-btn:hover { background-color: #d32f2f; }
+        .edit-btn { color: white; text-decoration: none; background-color: #2196F3; padding: 6px 10px; border-radius: 4px; margin-right: 5px; }
+        .edit-btn:hover { background-color: #0b7dda; }
         .logout { float: right; background-color: #f44336; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; }
-        .logout:hover { background-color: #d32f2f; }
         .container { max-width: 1000px; margin: 0 auto; }
     </style>
 </head>
@@ -47,15 +48,17 @@
         </table>
         
         <h2>Ürün Ekle</h2>
-        <form method="post" action="/add_item">
-            <input type="text" name="name" placeholder="Ürün adı" required>
-            <textarea name="description" placeholder="Açıklama"></textarea>
-            <input type="number" name="price" placeholder="Fiyat" step="0.01" required>
+        <form method="post" action="/add_item" id="item-form">
+            <input type="hidden" name="item_id" id="item-id">
+            <input type="text" name="name" placeholder="Ürün adı" required id="item-name">
+            <textarea name="description" placeholder="Açıklama" id="item-description"></textarea>
+            <input type="number" name="price" placeholder="Fiyat" step="0.01" required id="item-price">
             <select name="category_id" required id="category-select">
                 <option value="">Kategori seçin</option>
                 <!-- CATEGORIES_OPTIONS -->
             </select>
-            <button type="submit">Ürün Ekle</button>
+            <button type="submit" id="item-submit-btn">Ürün Ekle</button>
+            <button type="button" id="cancel-edit" style="background-color: #f44336; display: none;">İptal</button>
         </form>
         
         <h2>Ürünler</h2>
@@ -89,6 +92,36 @@
                 alert('Lütfen bir kategori seçin!');
                 return false;
             }
+        });
+
+        // Düzenleme işlevi
+        function editItem(itemId, name, description, price, categoryId) {
+            // Form alanlarını doldur
+            document.getElementById('item-id').value = itemId;
+            document.getElementById('item-name').value = name;
+            document.getElementById('item-description').value = description || '';
+            document.getElementById('item-price').value = price;
+            document.getElementById('category-select').value = categoryId;
+            
+            // Form başlığını ve buton metnini güncelle
+            document.getElementById('item-submit-btn').textContent = 'Ürünü Güncelle';
+            document.getElementById('item-form').action = '/edit_item';
+            document.getElementById('cancel-edit').style.display = 'inline-block';
+            
+            // Sayfayı form alanına kaydır
+            document.getElementById('item-form').scrollIntoView({behavior: 'smooth'});
+        }
+
+        // İptal butonu işlevi
+        document.getElementById('cancel-edit').addEventListener('click', function() {
+            // Formu temizle
+            document.getElementById('item-form').reset();
+            document.getElementById('item-id').value = '';
+            
+            // Form başlığını ve buton metnini sıfırla
+            document.getElementById('item-submit-btn').textContent = 'Ürün Ekle';
+            document.getElementById('item-form').action = '/add_item';
+            document.getElementById('cancel-edit').style.display = 'none';
         });
     </script>
 </body>
