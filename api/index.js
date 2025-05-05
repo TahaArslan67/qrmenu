@@ -7,12 +7,38 @@ const querystring = require('querystring');
 const cookie = require('cookie');
 
 // MongoDB bağlantısı
-const MONGO_URI = process.env.MONGODB_URI || 'mongodb://arslantaha67:0022800228t@panel.gjn1k.mongodb.net:27017/?retryWrites=true&w=majority';
+let MONGO_URI = process.env.MONGODB_URI;
+
+// Yerel mock veri
+const mockData = {
+  categories: [
+    { _id: '1', name: 'Kebap Çeşitleri' },
+    { _id: '2', name: 'İçecek Çeşitleri' },
+    { _id: '3', name: 'Kahvaltı Çeşitleri' },
+    { _id: '4', name: 'Çorba Çeşitleri' },
+    { _id: '5', name: 'Fırın Ürünleri' }
+  ],
+  items: [
+    { _id: '101', name: 'Adana Kebap', price: 250, category_id: '1', description: 'Özel lezzetli kebap' },
+    { _id: '102', name: 'Tavuk Şiş', price: 220, category_id: '1', description: '' },
+    { _id: '103', name: 'Çay', price: 20, category_id: '2', description: '' },
+    { _id: '104', name: 'Kahve', price: 40, category_id: '2', description: '' },
+    { _id: '105', name: 'Serpme Kahvaltı', price: 300, category_id: '3', description: 'Zengin içerikli' },
+    { _id: '106', name: 'Mercimek Çorbası', price: 80, category_id: '4', description: '' },
+    { _id: '107', name: 'Kıymalı Pide', price: 180, category_id: '5', description: '' }
+  ]
+};
+
+// Veritabanı durumu
+let useLocalData = false;
+let dbClient = null;
 
 // HTML şablonları
 const menuTemplate = fs.readFileSync(path.join(__dirname, '../templates/menu_new.html'), 'utf8');
 const adminTemplate = fs.readFileSync(path.join(__dirname, '../templates/admin_new.html'), 'utf8');
 const loginTemplate = fs.readFileSync(path.join(__dirname, '../templates/login.html'), 'utf8');
+const indexTemplate = fs.readFileSync(path.join(__dirname, '../templates/index_new.html'), 'utf8');
+const categoryTemplate = fs.readFileSync(path.join(__dirname, '../templates/category_new.html'), 'utf8');
 
 // Oturum anahtarı
 const SESSION_SECRET = 'supersecretkey';
@@ -22,11 +48,230 @@ const sessions = {};
 
 // MongoDB bağlantısı kurma fonksiyonu
 async function connectToDatabase() {
-  const client = await MongoClient.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-  return client.db('qrmenu');
+  if (useLocalData) {
+    console.log('Yerel veri kullanılıyor');
+    // Yerel mock veritabanı nesnesi oluştur
+    return {
+      collection: (name) => {
+        return {
+          find: (query = {}) => {
+            return {
+              toArray: async () => {
+                if (name === 'categories') return mockData.categories;
+                if (name === 'items') return mockData.items;
+                return [];
+              }
+            };
+          },
+          findOne: async (query) => {
+            if (name === 'categories') {
+              return mockData.categories.find(c => c._id === query._id);
+            }
+            return null;
+          },
+          insertOne: async (doc) => {
+            if (name === 'categories') {
+              const newId = Date.now().toString();
+              mockData.categories.push({ ...doc, _id: newId });
+              return { acknowledged: true, insertedId: newId };
+            }
+            if (name === 'items') {
+              const newId = Date.now().toString();
+              mockData.items.push({ ...doc, _id: newId });
+              return { acknowledged: true, insertedId: newId };
+            }
+            return { acknowledged: false };
+          },
+          deleteOne: async (query) => {
+            if (name === 'categories') {
+              const index = mockData.categories.findIndex(c => c._id === query._id);
+              if (index >= 0) mockData.categories.splice(index, 1);
+              return { deletedCount: index >= 0 ? 1 : 0 };
+            }
+            if (name === 'items') {
+              const index = mockData.items.findIndex(i => i._id === query._id);
+              if (index >= 0) mockData.items.splice(index, 1);
+              return { deletedCount: index >= 0 ? 1 : 0 };
+            }
+            return { deletedCount: 0 };
+          },
+          deleteMany: async (query) => {
+            if (name === 'items' && query.category_id) {
+              const count = mockData.items.filter(i => i.category_id === query.category_id).length;
+              mockData.items = mockData.items.filter(i => i.category_id !== query.category_id);
+              return { deletedCount: count };
+            }
+            return { deletedCount: 0 };
+          }
+        };
+      }
+    };
+  }
+
+  try {
+    // Eğer MONGO_URI yoksa, varsayılan URI'yi dene
+    if (!MONGO_URI) {
+      console.log('MongoDB URI bulunamadı, varsayılan URI deneniyor...');
+      MONGO_URI = 'mongodb+srv://arslantaha67:0022800228t@panel.gjn1k.mongodb.net/qrmenu?retryWrites=true&w=majority';
+    }
+
+    // Halen bağlantı varsa yeniden kullan
+    if (dbClient && dbClient.topology && dbClient.topology.isConnected()) {
+      console.log('Mevcut MongoDB bağlantısı kullanılıyor');
+      return dbClient.db('qrmenu');
+    }
+
+    console.log('MongoDB\'ye bağlanılıyor...');
+    dbClient = await MongoClient.connect(MONGO_URI, { 
+      useNewUrlParser: true, 
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000 // 5 saniye bağlantı zaman aşımı
+    });
+    console.log('MongoDB bağlantısı başarılı!');
+    return dbClient.db('qrmenu');
+  } catch (err) {
+    console.error('MongoDB bağlantı hatası:', err.message);
+    console.log('Yerel veri kullanımına geçiliyor...');
+    useLocalData = true;
+    return connectToDatabase(); // Yerel veri için fonksiyonu tekrar çağır
+  }
 }
 
-// Ana sayfa
+// Ana sayfa - Kategorileri göster
+async function renderIndex() {
+  try {
+    const db = await connectToDatabase();
+    const categories = await db.collection('categories').find({}).toArray();
+    
+    // HTML şablonunu oku
+    let html = indexTemplate;
+    
+    // Kategorileri ekle
+    let categoriesGridHtml = '';
+    
+    if (categories.length > 0) {
+      categories.forEach(category => {
+        const categoryImgPath = `/static/category_images/${category.name.toLowerCase().replace(/ /g, '_')}.jpg`;
+        
+        categoriesGridHtml += `
+          <a href="/category/${category._id}" class="category-card">
+            <img src="${categoryImgPath}" class="category-img" alt="${category.name}" onerror="this.src='/static/uploads/pide_bg.jpg'">
+            <div class="category-name">${category.name}</div>
+          </a>
+        `;
+      });
+    } else {
+      categoriesGridHtml = '<p class="no-items">Henüz kategori bulunmamaktadır.</p>';
+    }
+    
+    // Kategori grid içeriğini HTML'e ekle
+    html = html.replace('<!-- CATEGORIES_GRID -->', categoriesGridHtml);
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      },
+      body: html
+    };
+  } catch (error) {
+    console.error('Ana sayfa render hatası:', error);
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Kategori sayfası
+async function renderCategory(categoryId) {
+  try {
+    const db = await connectToDatabase();
+    
+    // Kategori ID'sini ObjectId'ye dönüştür
+    let objCategoryId;
+    try {
+      objCategoryId = new ObjectId(categoryId);
+    } catch (e) {
+      return {
+        statusCode: 404,
+        body: 'Geçersiz kategori ID'
+      };
+    }
+    
+    // Kategoriyi bul
+    const category = await db.collection('categories').findOne({ _id: objCategoryId });
+    
+    if (!category) {
+      return {
+        statusCode: 404,
+        body: 'Kategori bulunamadı'
+      };
+    }
+    
+    // Kategoriye ait ürünleri bul
+    const items = await db.collection('items').find({ category_id: objCategoryId }).toArray();
+    
+    // HTML şablonunu oku
+    let html = categoryTemplate;
+    
+    // Kategori adını ekle
+    html = html.replace(/<!-- CATEGORY_NAME -->/g, category.name);
+    
+    // Kategori ürünlerini ekle
+    let itemsHtml = '';
+    
+    if (items.length > 0) {
+      items.forEach(item => {
+        itemsHtml += `
+          <li class="menu-item-row">
+            <div class="menu-item-info">
+              <span class="menu-item-name">${item.name}</span>
+              ${item.description ? `<div class="menu-item-description">${item.description}</div>` : ''}
+            </div>
+            <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
+          </li>
+        `;
+      });
+    } else {
+      itemsHtml = '<p class="no-items">Bu kategoride henüz ürün bulunmamaktadır.</p>';
+    }
+    
+    // Ürünleri HTML'e ekle
+    html = html.replace('<!-- CATEGORY_ITEMS -->', itemsHtml);
+    
+    // Kategori resimlerini ekle
+    const categoryImages = [];
+    for (let i = 1; i <= 4; i++) {
+      const imgPath = `/static/category_images/${category.name.toLowerCase().replace(/ /g, '_')}_${i}.jpg`;
+      categoryImages.push(imgPath);
+    }
+    
+    let imagesHtml = '';
+    categoryImages.forEach(imgPath => {
+      imagesHtml += `<img src="${imgPath}" class="category-image" alt="${category.name}" onerror="this.src='/static/uploads/pide_bg.jpg'">`;
+    });
+    
+    // Resimleri HTML'e ekle
+    html = html.replace('<!-- CATEGORY_IMAGES -->', imagesHtml);
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8'
+      },
+      body: html
+    };
+  } catch (error) {
+    console.error('Kategori render hatası:', error);
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`
+    };
+  }
+}
+
+// Menü sayfası (eski)
 async function renderMenu() {
   try {
     const db = await connectToDatabase();
@@ -455,44 +700,54 @@ function handleLogout() {
 
 // API handler
 module.exports = async (req, res) => {
-  const { method, url } = req;
+  const method = req.method;
+  const { url } = req;
   
-  // Oturum bilgisini al
-  let sessionId = null;
-  if (req.headers.cookie) {
-    const cookies = cookie.parse(req.headers.cookie);
-    sessionId = cookies.sessionId;
+  // CSS ve diğer statik dosyalar için
+  if (url.startsWith('/static/')) {
+    try {
+      const filePath = path.join(__dirname, '..', url);
+      const contentType = getContentType(filePath);
+      
+      const fileContent = fs.readFileSync(filePath);
+      
+      res.setHeader('Content-Type', contentType);
+      return res.end(fileContent);
+    } catch (error) {
+      return res.status(404).end('Dosya bulunamadı');
+    }
   }
   
-  // Ana sayfa
-  if (url === '/' || url === '/index.html') {
-    const result = await renderMenu();
-    res.statusCode = result.statusCode;
-    
-    if (result.headers) {
-      Object.keys(result.headers).forEach(key => {
-        res.setHeader(key, result.headers[key]);
-      });
+  // Çerezleri al
+  const cookies = cookie.parse(req.headers.cookie || '');
+  const sessionId = cookies.sessionId;
+  
+  // Ana sayfa (kategoriler)
+  if (url === '/' || url === '') {
+    const result = await renderIndex();
+    return res.status(result.statusCode).end(result.body);
+  }
+  
+  // Kategori sayfası
+  if (url.startsWith('/category/')) {
+    const categoryId = url.split('/category/')[1];
+    if (categoryId) {
+      const result = await renderCategory(categoryId);
+      return res.status(result.statusCode).end(result.body);
     }
-    
-    res.end(result.body);
-    return;
+  }
+  
+  // Eski menü sayfası
+  if (url === '/menu') {
+    const result = await renderMenu();
+    return res.status(result.statusCode).end(result.body);
   }
   
   // Login sayfası
   if (url === '/login') {
     if (method === 'GET') {
       const result = renderLogin();
-      res.statusCode = result.statusCode;
-      
-      if (result.headers) {
-        Object.keys(result.headers).forEach(key => {
-          res.setHeader(key, result.headers[key]);
-        });
-      }
-      
-      res.end(result.body);
-      return;
+      return res.status(result.statusCode).end(result.body);
     } else if (method === 'POST') {
       let body = '';
       req.on('data', chunk => {
@@ -500,16 +755,18 @@ module.exports = async (req, res) => {
       });
       
       req.on('end', async () => {
-        const result = await handleLogin(body);
-        res.statusCode = result.statusCode;
+        const formData = querystring.parse(body);
+        const result = await handleLogin(formData);
         
-        if (result.headers) {
-          Object.keys(result.headers).forEach(key => {
-            res.setHeader(key, result.headers[key]);
-          });
+        if (result.headers && result.headers['Set-Cookie']) {
+          res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
         }
         
-        res.end(result.body);
+        if (result.headers && result.headers['Location']) {
+          res.setHeader('Location', result.headers['Location']);
+        }
+        
+        return res.status(result.statusCode).end(result.body);
       });
       
       return;
@@ -519,31 +776,15 @@ module.exports = async (req, res) => {
   // Admin sayfası
   if (url === '/admin') {
     const result = await renderAdmin(sessionId);
-    res.statusCode = result.statusCode;
-    
-    if (result.headers) {
-      Object.keys(result.headers).forEach(key => {
-        res.setHeader(key, result.headers[key]);
-      });
-    }
-    
-    res.end(result.body);
-    return;
+    return res.status(result.statusCode).end(result.body);
   }
   
   // Çıkış yapma
   if (url === '/logout') {
     const result = handleLogout();
-    res.statusCode = result.statusCode;
-    
-    if (result.headers) {
-      Object.keys(result.headers).forEach(key => {
-        res.setHeader(key, result.headers[key]);
-      });
-    }
-    
-    res.end(result.body);
-    return;
+    res.setHeader('Set-Cookie', result.headers['Set-Cookie']);
+    res.setHeader('Location', result.headers['Location']);
+    return res.status(result.statusCode).end(result.body);
   }
   
   // Ürün ekleme
@@ -554,16 +795,14 @@ module.exports = async (req, res) => {
     });
     
     req.on('end', async () => {
-      const result = await handleAddItem(body, sessionId);
-      res.statusCode = result.statusCode;
+      const formData = querystring.parse(body);
+      const result = await handleAddItem(formData, sessionId);
       
-      if (result.headers) {
-        Object.keys(result.headers).forEach(key => {
-          res.setHeader(key, result.headers[key]);
-        });
+      if (result.headers && result.headers['Location']) {
+        res.setHeader('Location', result.headers['Location']);
       }
       
-      res.end(result.body);
+      return res.status(result.statusCode).end(result.body);
     });
     
     return;
@@ -577,16 +816,14 @@ module.exports = async (req, res) => {
     });
     
     req.on('end', async () => {
-      const result = await handleAddCategory(body, sessionId);
-      res.statusCode = result.statusCode;
+      const formData = querystring.parse(body);
+      const result = await handleAddCategory(formData, sessionId);
       
-      if (result.headers) {
-        Object.keys(result.headers).forEach(key => {
-          res.setHeader(key, result.headers[key]);
-        });
+      if (result.headers && result.headers['Location']) {
+        res.setHeader('Location', result.headers['Location']);
       }
       
-      res.end(result.body);
+      return res.status(result.statusCode).end(result.body);
     });
     
     return;
@@ -594,62 +831,52 @@ module.exports = async (req, res) => {
   
   // Ürün silme
   if (url.startsWith('/delete_item/')) {
-    const itemId = url.replace('/delete_item/', '');
+    const itemId = url.split('/delete_item/')[1];
     const result = await handleDeleteItem(itemId, sessionId);
-    res.statusCode = result.statusCode;
     
-    if (result.headers) {
-      Object.keys(result.headers).forEach(key => {
-        res.setHeader(key, result.headers[key]);
-      });
+    if (result.headers && result.headers['Location']) {
+      res.setHeader('Location', result.headers['Location']);
     }
     
-    res.end(result.body);
-    return;
+    return res.status(result.statusCode).end(result.body);
   }
   
   // Kategori silme
   if (url.startsWith('/delete_category/')) {
-    const categoryId = url.replace('/delete_category/', '');
+    const categoryId = url.split('/delete_category/')[1];
     const result = await handleDeleteCategory(categoryId, sessionId);
-    res.statusCode = result.statusCode;
     
-    if (result.headers) {
-      Object.keys(result.headers).forEach(key => {
-        res.setHeader(key, result.headers[key]);
-      });
+    if (result.headers && result.headers['Location']) {
+      res.setHeader('Location', result.headers['Location']);
     }
     
-    res.end(result.body);
-    return;
+    return res.status(result.statusCode).end(result.body);
   }
   
-  // Statik dosyalar
-  if (url.startsWith('/static/')) {
-    try {
-      const filePath = path.join(__dirname, '..', url);
-      const data = fs.readFileSync(filePath);
-      
-      // MIME tipini belirle
-      let contentType = 'text/plain';
-      if (url.endsWith('.css')) contentType = 'text/css';
-      if (url.endsWith('.js')) contentType = 'application/javascript';
-      if (url.endsWith('.jpg') || url.endsWith('.jpeg')) contentType = 'image/jpeg';
-      if (url.endsWith('.png')) contentType = 'image/png';
-      if (url.endsWith('.svg')) contentType = 'image/svg+xml';
-      
-      res.setHeader('Content-Type', contentType);
-      res.statusCode = 200;
-      res.end(data);
-      return;
-    } catch (error) {
-      res.statusCode = 404;
-      res.end('Dosya bulunamadı');
-      return;
-    }
-  }
-  
-  // Sayfa bulunamadı
-  res.statusCode = 404;
-  res.end('Sayfa bulunamadı');
+  // 404 - Sayfa bulunamadı
+  return res.status(404).end('Sayfa bulunamadı');
 };
+
+// MIME tipini belirle
+function getContentType(filePath) {
+  const extname = path.extname(filePath);
+  switch (extname) {
+    case '.html':
+      return 'text/html';
+    case '.css':
+      return 'text/css';
+    case '.js':
+      return 'text/javascript';
+    case '.json':
+      return 'application/json';
+    case '.png':
+      return 'image/png';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.gif':
+      return 'image/gif';
+    default:
+      return 'text/plain';
+  }
+}

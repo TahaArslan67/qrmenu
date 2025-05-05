@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gözde Pide - QR Menü</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css?family=Pacifico&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Quicksand:400,700&display=swap" rel="stylesheet">
+    <style>
+        .category-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .category-card {
+            background-color: rgba(255, 255, 255, 0.85);
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            height: 200px;
+        }
+        
+        .category-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .category-img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+        
+        .category-name {
+            padding: 15px;
+            font-weight: bold;
+            font-size: 18px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="menu-container">
+        <div class="menu-header">Gözde Pide Menü</div>
+        <div class="menu-section">
+            <div class="category-grid">
+                {% for category in categories %}
+                    <a href="/category/{{ category['_id'] }}" class="category-card">
+                        <img src="/static/category_images/{{ category['name']|lower|replace(' ', '_') }}.jpg" class="category-img" alt="{{ category['name'] }}">
+                        <div class="category-name">{{ category['name'] }}</div>
+                    </a>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="menu-footer">Afiyet olsun!</div>
+    </div>
+</body>
+</html>
