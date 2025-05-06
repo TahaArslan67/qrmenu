@@ -12,20 +12,20 @@ let MONGO_URI = process.env.MONGODB_URI;
 // Yerel mock veri
 const mockData = {
   categories: [
-    { _id: '1', name: 'Kebap Çeşitleri' },
-    { _id: '2', name: 'İçecek Çeşitleri' },
-    { _id: '3', name: 'Kahvaltı Çeşitleri' },
-    { _id: '4', name: 'Çorba Çeşitleri' },
-    { _id: '5', name: 'Fırın Ürünleri' }
+    { _id: '1', name: 'Kebap Çeşitleri', category_num: 1 },
+    { _id: '2', name: 'İçecek Çeşitleri', category_num: 2 },
+    { _id: '3', name: 'Kahvaltı Çeşitleri', category_num: 3 },
+    { _id: '4', name: 'Çorba Çeşitleri', category_num: 4 },
+    { _id: '5', name: 'Fırın Ürünleri', category_num: 5 }
   ],
   items: [
-    { _id: '101', name: 'Adana Kebap', price: 250, category_id: '1', description: 'Özel lezzetli kebap' },
-    { _id: '102', name: 'Tavuk Şiş', price: 220, category_id: '1', description: '' },
-    { _id: '103', name: 'Çay', price: 20, category_id: '2', description: '' },
-    { _id: '104', name: 'Kahve', price: 40, category_id: '2', description: '' },
-    { _id: '105', name: 'Serpme Kahvaltı', price: 300, category_id: '3', description: 'Zengin içerikli' },
-    { _id: '106', name: 'Mercimek Çorbası', price: 80, category_id: '4', description: '' },
-    { _id: '107', name: 'Kıymalı Pide', price: 180, category_id: '5', description: '' }
+    { _id: '101', name: 'Adana Kebap', price: 250, category_id: 1, description: 'Özel lezzetli kebap' },
+    { _id: '102', name: 'Tavuk Şiş', price: 220, category_id: 1, description: '' },
+    { _id: '103', name: 'Çay', price: 20, category_id: 2, description: '' },
+    { _id: '104', name: 'Kahve', price: 40, category_id: 2, description: '' },
+    { _id: '105', name: 'Serpme Kahvaltı', price: 300, category_id: 3, description: 'Zengin içerikli' },
+    { _id: '106', name: 'Mercimek Çorbası', price: 80, category_id: 4, description: '' },
+    { _id: '107', name: 'Kıymalı Pide', price: 180, category_id: 5, description: '' }
   ]
 };
 
@@ -209,8 +209,20 @@ async function renderCategory(categoryId) {
       };
     }
     
-    // Kategoriye ait ürünleri bul
-    const items = await db.collection('items').find({ category_id: objCategoryId }).toArray();
+    console.log("Kategori bulundu:", category);
+    
+    // Kategori sayısal ID'sini al
+    const categoryNum = category.category_num;
+    console.log("Kategorinin sayısal ID'si:", categoryNum);
+    
+    // Kategoriye ait ürünleri sayısal ID ile bul
+    const items = await db.collection('items').find({ category_id: categoryNum }).toArray();
+    console.log(`${categoryNum} numaralı kategori için ${items.length} ürün bulundu`);
+    
+    // Ürünleri debug için göster
+    items.forEach((item, index) => {
+      console.log(`${index+1}. Ürün: ${item.name}, Fiyat: ${item.price}, Kategori: ${item.category_id}`);
+    });
     
     // HTML şablonunu oku
     let html = categoryTemplate;
@@ -227,7 +239,6 @@ async function renderCategory(categoryId) {
           <li class="menu-item-row">
             <div class="menu-item-info">
               <span class="menu-item-name">${item.name}</span>
-              ${item.description ? `<div class="menu-item-description">${item.description}</div>` : ''}
             </div>
             <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
           </li>
@@ -416,11 +427,12 @@ async function renderAdmin(sessionId) {
     // Ürün listesini oluştur
     let itemsHtml = '';
     items.forEach(item => {
-      let categoryName = 'Bilinmeyen Kategori';
+      let categoryName = 'Kategorisi yok';
       
       // Kategori ID'sini güvenli bir şekilde kontrol et
       if (item.category_id) {
-        const category = categories.find(c => {
+        // 1. Direk ObjectId eşleşmesi
+        let category = categories.find(c => {
           try {
             return c._id.toString() === item.category_id.toString();
           } catch (e) {
@@ -428,8 +440,47 @@ async function renderAdmin(sessionId) {
           }
         });
         
+        // 2. Sayısal ID (category_num) ile eşleşme
+        if (!category) {
+          // Kategori ID'sini sayısal veya string olarak al
+          let numCategoryId = null;
+          
+          try {
+            // String veya sayı olabilir - sayısala çevirmeye çalış
+            numCategoryId = typeof item.category_id === 'number' ? 
+              item.category_id : 
+              parseInt(item.category_id);
+              
+            // Eğer sayısala çevrilemiyorsa ObjectId olabilir
+            if (isNaN(numCategoryId) && typeof item.category_id === 'string' && item.category_id.length === 24) {
+              try {
+                // ObjectId'yi string olarak karşılaştır
+                category = categories.find(c => c._id.toString() === item.category_id);
+              } catch (e) {
+                console.log(`ObjectId karşılaştırma hatası: ${e.message}`);
+              }
+            }
+            
+            // Sayısal kategori ID ile eşleştir (category_num alanı ile)
+            if (!category && !isNaN(numCategoryId)) {
+              category = categories.find(c => c.category_num === numCategoryId);
+              console.log(`${item.name} ürünü için kategori sayısal ID ile eşleştirildi: ${numCategoryId}`);
+            }
+          } catch (e) {
+            console.log(`Kategori ID dönüşüm hatası: ${e.message}`);
+          }
+          
+          // 3. Son çare - ID'yi içeren durumlar için (kısmi eşleşme)
+          if (!category && numCategoryId) {
+            category = categories.find(c => c._id.toString().includes(numCategoryId.toString()));
+          }
+        }
+        
         if (category) {
           categoryName = category.name;
+          console.log(`Ürün eşleşmesi: ${item.name} -> ${categoryName} (ID: ${item.category_id})`);
+        } else {
+          console.log(`Eşleşmeyen kategori: ${item.name} ürünü için kategori ID: ${item.category_id}`);
         }
       }
       
@@ -858,13 +909,38 @@ async function handleEditItem(body, sessionId) {
       };
     }
     
-    // Kategori ID'sini ObjectId'ye dönüştür
-    let objCategoryId;
+    // Kategori ID'sini ObjectId'ye dönüştür ve sayısal ID'yi al
+    let categoryIdNum;
     try {
-      objCategoryId = new ObjectId(categoryId);
+      // Önce kategoriyi ObjectId ile bul
+      const objCategoryId = new ObjectId(categoryId);
+      const category = await db.collection('categories').findOne({ _id: objCategoryId });
+      
+      if (category && category.category_num) {
+        // Kategori bulundu, sayısal ID'sini kullan
+        categoryIdNum = category.category_num;
+        console.log(`Kategori bulundu: ${category.name}, sayısal ID: ${categoryIdNum}`);
+      } else {
+        // Kategori bulunamadı veya category_num yok, kategoriId'yi sayısal olarak çevirmeyi dene
+        try {
+          categoryIdNum = parseInt(categoryId);
+          console.log(`Kategori ID sayısal değere dönüştürüldü: ${categoryIdNum}`);
+        } catch (e) {
+          // Sayısal değere dönüştürülemiyorsa varsayılan 1 kullan
+          categoryIdNum = 1;
+          console.log(`Kategori ID sayısal değere dönüştürülemedi, varsayılan 1 kullanılıyor`);
+        }
+      }
     } catch (e) {
-      // Eğer dönüştürülemezse, string olarak kullan
-      objCategoryId = categoryId;
+      // ObjectId'ye dönüştürme hatası, sayısal dönüşümü dene
+      try {
+        categoryIdNum = parseInt(categoryId);
+        console.log(`Kategori ID doğrudan sayısal değere dönüştürüldü: ${categoryIdNum}`);
+      } catch (e2) {
+        // Hatada varsayılan kategori 1 kullan
+        categoryIdNum = 1;
+        console.log(`Kategori ID işlenirken hata oluştu: ${e.message}, varsayılan 1 kullanılıyor`);
+      }
     }
     
     // Ürün ID'sini ObjectId'ye dönüştür
@@ -878,7 +954,7 @@ async function handleEditItem(body, sessionId) {
       };
     }
     
-    // Ürünü güncelle
+    // Ürünü güncelle - sayısal category_id ile
     const result = await db.collection('items').updateOne(
       { _id: objItemId },
       { 
@@ -886,8 +962,8 @@ async function handleEditItem(body, sessionId) {
           name: name,
           description: description,
           price: price,
-          category_id: categoryId
-        } 
+          category_id: categoryIdNum  // Sayısal kategori ID'yi kullan
+        }
       }
     );
     

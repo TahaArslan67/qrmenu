@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ category.name }} - Gözde Pide</title>
+    <title><%= category.name %> - Gözde Pide</title>
     <link rel="stylesheet" href="/static/style.css">
     <link href="https://fonts.googleapis.com/css?family=Pacifico&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css?family=Quicksand:400,700&display=swap" rel="stylesheet">
@@ -75,33 +75,34 @@
         <div class="menu-header">Gözde Pide Menü</div>
         <div class="menu-section">
             <a href="/" class="back-button">← Kategorilere Dön</a>
-            <h2 class="category-title">{{ category.name }}</h2>
+            <h2 class="category-title"><%= category.name %></h2>
             
             <div class="two-column-layout">
                 <!-- Ürünler Sütunu (Sol taraf) -->
                 <div class="products-column">
-                    <ul class="menu-list">
-                        {% for item in items %}
-                        <li class="menu-item-row">
-                            <div class="menu-item-info">
-                                <span class="menu-item-name">{{ item['name'] }}</span>
-                                {% if item.description %}
-                                <div class="menu-item-description">{{ item['description'] }}</div>
-                                {% endif %}
-                            </div>
-                            <span class="menu-item-price">{{ '%.0f' % item['price'] }} ₺</span>
-                        </li>
-                        {% endfor %}
-                    </ul>
+                    <% if (items && items.length > 0) { %>
+                        <ul class="menu-list">
+                            <% items.forEach(function(item) { %>
+                                <li class="menu-item-row">
+                                    <div class="menu-item-info">
+                                        <span class="menu-item-name"><%= item.name %></span>
+                                        <% if (item.description) { %>
+                                            <div class="menu-item-description"><%= item.description %></div>
+                                        <% } %>
+                                    </div>
+                                    <span class="menu-item-price"><%= Math.round(item.price) %> ₺</span>
+                                </li>
+                            <% }); %>
+                        </ul>
+                    <% } else { %>
+                        <p class="empty-message">Bu kategoride henüz ürün bulunmamaktadır.</p>
+                    <% } %>
                 </div>
                 
                 <!-- Resimler Sütunu (Sağ taraf) -->
                 <div class="images-column">
                     <!-- Statik resimler burada yer alacak -->
-                    <img src="/static/category_images/{{ category.name|lower|replace(' ', '_') }}_1.jpg" class="category-image" alt="{{ category.name }}">
-                    <img src="/static/category_images/{{ category.name|lower|replace(' ', '_') }}_2.jpg" class="category-image" alt="{{ category.name }}">
-                    <img src="/static/category_images/{{ category.name|lower|replace(' ', '_') }}_3.jpg" class="category-image" alt="{{ category.name }}">
-                    <img src="/static/category_images/{{ category.name|lower|replace(' ', '_') }}_4.jpg" class="category-image" alt="{{ category.name }}">
+                    <img src="/static/category_images/default.jpg" class="category-image" alt="<%= category.name %>">
                 </div>
             </div>
         </div>

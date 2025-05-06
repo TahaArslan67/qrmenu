@@ -8,20 +8,20 @@ import time
 # Mock veri - MongoDB bağlanamazsak kullanacağız
 mock_data = {
     "categories": [
-        {"_id": "1", "name": "Kebap Çeşitleri"},
-        {"_id": "2", "name": "İçecek Çeşitleri"},
-        {"_id": "3", "name": "Kahvaltı Çeşitleri"},
-        {"_id": "4", "name": "Çorba Çeşitleri"},
-        {"_id": "5", "name": "Fırın Ürünleri"}
+        {"category_num": 1, "name": "Kebap Çeşitleri"},
+        {"category_num": 2, "name": "İçecek Çeşitleri"},
+        {"category_num": 3, "name": "Kahvaltı Çeşitleri"},
+        {"category_num": 4, "name": "Çorba Çeşitleri"},
+        {"category_num": 5, "name": "Fırın Ürünleri"}
     ],
     "items": [
-        {"_id": "101", "name": "Adana Kebap", "price": 250, "category_id": "1", "description": "Özel lezzetli kebap"},
-        {"_id": "102", "name": "Tavuk Şiş", "price": 220, "category_id": "1", "description": ""},
-        {"_id": "103", "name": "Çay", "price": 20, "category_id": "2", "description": ""},
-        {"_id": "104", "name": "Kahve", "price": 40, "category_id": "2", "description": ""},
-        {"_id": "105", "name": "Serpme Kahvaltı", "price": 300, "category_id": "3", "description": "Zengin içerikli"},
-        {"_id": "106", "name": "Mercimek Çorbası", "price": 80, "category_id": "4", "description": ""},
-        {"_id": "107", "name": "Kıymalı Pide", "price": 180, "category_id": "5", "description": ""}
+        {"_id": "101", "name": "Adana Kebap", "price": 250, "category_id": 1, "description": "Özel lezzetli kebap"},
+        {"_id": "102", "name": "Tavuk Şiş", "price": 220, "category_id": 1, "description": ""},
+        {"_id": "103", "name": "Çay", "price": 20, "category_id": 2, "description": ""},
+        {"_id": "104", "name": "Kahve", "price": 40, "category_id": 2, "description": ""},
+        {"_id": "105", "name": "Serpme Kahvaltı", "price": 300, "category_id": 3, "description": "Zengin içerikli"},
+        {"_id": "106", "name": "Mercimek Çorbası", "price": 80, "category_id": 4, "description": ""},
+        {"_id": "107", "name": "Kıymalı Pide", "price": 180, "category_id": 5, "description": ""}
     ]
 }
 
@@ -37,9 +37,9 @@ class MockCollection:
         return self.data
     
     def find_one(self, query):
-        if '_id' in query:
+        if 'category_num' in query:
             for item in self.data:
-                if item['_id'] == query['_id']:
+                if item['category_num'] == query['category_num']:
                     return item
         return None
     
@@ -139,33 +139,72 @@ connect_to_mongodb()
 
 @app.route('/')
 def menu():
-    categories = list(categories_col.find())
-    # Ana sayfa artık kategorileri gösterecek
+    # Kategorileri sayısal ID ile sıralı getir
+    categories = list(categories_col.find().sort('category_num', 1))
+    # Debug için ekranda göster
+    for category in categories:
+        print(f"Kategori: {category['name']}, Sayısal ID: {category.get('category_num')}")
     return render_template('index.html', categories=categories)
 
 @app.route('/category/<category_id>')
 def category(category_id):
     try:
-        # Kategori ID'sini ObjectId'ye dönüştür
-        if not use_local_data:
-            obj_category_id = ObjectId(category_id)
-        else:
-            obj_category_id = category_id
-            
-        # Kategori ve ilgili ürünleri al
-        category = categories_col.find_one({'_id': obj_category_id})
-        if not category:
-            return redirect(url_for('menu'))
+        print(f"\n-------------- KATEGORİ GÖRÜNTÜLEME -------------")
+        print(f"İstenen kategori ID: {category_id}")
         
-        if use_local_data:
-            items = [item for item in items_col.find() if item.get('category_id') == category_id]
-        else:
-            items = list(items_col.find({'category_id': obj_category_id}))
+        # MongoDB bağlantısını kontrol et
+        if client and db:
+            # Kategori ObjectId ile bul
+            try:
+                obj_id = ObjectId(category_id)
+                category = categories_col.find_one({'_id': obj_id})
+                print(f"Bulunan kategori: {category}")
+            except Exception as e:
+                print(f"ObjectId dönüşüm hatası: {e}")
+                flash('Kategori bulunamadı!')
+                return redirect(url_for('index'))
             
-        return render_template('category.html', category=category, items=items)
+            if not category:
+                flash('Kategori bulunamadı!')
+                return redirect(url_for('index'))
+            
+            # Kategori sayısal ID'sini al (category_num)
+            category_num = category.get('category_num')
+            print(f"Kategori sayısal ID: {category_num}")
+            
+            if category_num is not None:
+                # Ürünleri sayısal kategori ID ile bul
+                db_items = list(items_col.find({'category_id': category_num}))
+                print(f"Kategori {category_num} için {len(db_items)} ürün bulundu")
+                
+                # Hata ayıklama için daha detaylı bilgi
+                print("\nÜRÜN BİLGİLERİ:")
+                for i, item in enumerate(db_items):
+                    print(f"{i+1}. {item.get('name')} (kategori ID: {item.get('category_id')})")
+                    # Ürün bilgilerinin tümünü göster
+                    for key, value in item.items():
+                        if key != '_id':  # ObjectId'yi dışarıda bırak
+                            print(f"   {key}: {value}")
+                
+                return render_template('category.html', category=category, items=db_items)
+            else:
+                print("Kategori sayısal ID'si bulunamadı - boş ürün listesi döndürülüyor")
+                return render_template('category.html', category=category, items=[])
+        else:
+            # Mock data kullan
+            category = next((c for c in mock_data['categories'] if str(c.get('_id')) == category_id), None)
+            if not category:
+                flash('Kategori bulunamadı!')
+                return redirect(url_for('index'))
+            
+            mock_items = [item for item in mock_data['items'] if item.get('category_id') == category.get('category_num')]
+            return render_template('category.html', category=category, items=mock_items)
     except Exception as e:
-        flash('Kategori gösterirken hata oluştu: ' + str(e))
-        return redirect(url_for('menu'))
+        print(f"Kategori görüntüleme hatası: {str(e)}")
+        import traceback
+        traceback.print_exc() 
+        flash(f'Bir hata oluştu: {str(e)}')
+        return redirect(url_for('index'))
 
 @app.route('/menu')
 def old_menu():
@@ -209,22 +248,17 @@ def add_item():
     name = request.form['name']
     description = request.form['description']
     price = float(request.form['price'])
-    category_id = request.form['category_id']
+    category_id = int(request.form['category_id'])
     if not category_id:
         flash('Lütfen bir kategori seçin!')
         return redirect(url_for('admin_panel'))
     try:
-        obj_category_id = None
-        try:
-            obj_category_id = ObjectId(category_id)
-        except Exception as e:
-            flash('Kategori ID hatası: ' + str(e))
-            return redirect(url_for('admin_panel'))
+        # Kategori ID'yi sayısal olarak kaydet
         result = items_col.insert_one({
             'name': name,
             'description': description,
             'price': price,
-            'category_id': obj_category_id
+            'category_id': category_id  # Sayısal kategori ID
         })
         if not result.acknowledged:
             flash('Ürün eklenemedi (MongoDB insert başarısız)!')
@@ -246,15 +280,80 @@ def add_category():
     if not session.get('admin'):
         return redirect(url_for('login'))
     name = request.form['name']
-    categories_col.insert_one({'name': name})
+    result = categories_col.insert_one({'name': name, 'category_num': len(list(categories_col.find())) + 1})
+    # Kategori eklendiğinde ID'sini flash mesajıyla göster (debug için)
+    if result.acknowledged:
+        flash(f'Kategori eklendi. ID: {result.inserted_id}')
     return redirect(url_for('admin_panel'))
 
 @app.route('/delete_category/<category_id>')
 def delete_category(category_id):
     if not session.get('admin'):
         return redirect(url_for('login'))
-    categories_col.delete_one({'_id': ObjectId(category_id)})
-    items_col.delete_many({'category_id': ObjectId(category_id)})
+    categories_col.delete_one({'category_num': int(category_id)})
+    # Kategori ID'yi sayısal olarak kullan
+    items_col.delete_many({'category_id': int(category_id)})
+    return redirect(url_for('admin_panel'))
+
+@app.route('/edit_item', methods=['POST'])
+def edit_item():
+    if not session.get('admin'):
+        return redirect(url_for('login'))
+    
+    try:
+        # Form verilerini al
+        item_id = request.form['item_id']
+        name = request.form['name']
+        description = request.form['description']
+        price = float(request.form['price'])
+        category_id = request.form['category_id']
+        
+        print(f"Güncellenecek ürün - ID: {item_id}")
+        print(f"Alınan kategori ID: {category_id} - Tipi: {type(category_id)}")
+        
+        # Kategori ID'yi sayısal değere dönüştür
+        # Eğer String ObjectId formatında ise:
+        try:
+            # Önce kategoriyi ObjectId ile bul
+            category = categories_col.find_one({'_id': ObjectId(category_id)})
+            if category and 'category_num' in category:
+                category_id_num = category['category_num']
+                print(f"ObjectId'den sayısal ID'ye dönüştürüldü: {category_id} -> {category_id_num}")
+            else:
+                # Direkt sayısal ID olma ihtimaline karşı kontrol et
+                try:
+                    category_id_num = int(category_id)
+                    print(f"Kategori ID doğrudan sayısal değere dönüştürüldü: {category_id_num}")
+                except ValueError:
+                    # Eğer sayısal olmayan bir string ise, varsayılan kategoriyi kullan
+                    category_id_num = 1
+                    print(f"Kategori ID sayısal değil, varsayılan 1 kullanılıyor")
+        except Exception as e:
+            print(f"Kategori ID dönüştürme hatası: {e}")
+            # Hata durumunda varsayılan olarak 1 numaralı kategoriyi kullan
+            category_id_num = 1
+        
+        # Ürünü güncelle - sayısal category_id ile
+        result = items_col.update_one(
+            {'_id': ObjectId(item_id)},
+            {'$set': {
+                'name': name,
+                'description': description,
+                'price': price,
+                'category_id': category_id_num  # Sayısal kategori ID kaydet
+            }}
+        )
+        
+        if result.modified_count > 0:
+            flash('Ürün başarıyla güncellendi.')
+        else:
+            flash('Ürün bulunamadı veya değişiklik yapılmadı.')
+            
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        flash(f'Ürün güncellenirken hata oluştu: {str(e)}')
+    
     return redirect(url_for('admin_panel'))
 
 # Vercel için handler

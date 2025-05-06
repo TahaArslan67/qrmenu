@@ -67,6 +67,105 @@ def admin_panel():
         return redirect(url_for('login'))
     categories = list(categories_col.find())
     items = list(items_col.find())
+    
+    # Debug için kategori bilgilerini yazdır
+    print("\n=== KATEGORİ BİLGİLERİ ===")
+    for cat in categories:
+        print(f"Kategori: {cat.get('name')}, ID: {cat.get('_id')}, Kategori Num: {cat.get('category_num', None)}")
+    
+    # Kategori bilgilerini ürünlere ekle
+    for item in items:
+        # ID'yi string'e çevir (template'de kullanılabilmesi için)
+        item['id'] = str(item['_id'])
+        
+        # Debug için ürün-kategori eşleşmesi bilgilerini yazdır
+        print(f"\n=== ÜRÜN KATEGORİ KONTROL: {item.get('name')} ===")
+        if 'category_id' in item:
+            print(f"Ürün kategori ID: {item['category_id']}, Tip: {type(item['category_id'])}")
+        else:
+            print("Ürün için kategori ID bilgisi yok")
+        
+        # Kategori bilgilerini ekle
+        category_name = "Kategorisi yok"
+        if 'category_id' in item and item['category_id']:
+            # Kategori ID'si ile eşleşen kategoriyi bul
+            try:
+                # Kategori ID'sinin türünü kontrol et ve uygun arama yöntemini kullan
+                category = None
+                
+                # 1. Eğer ObjectId ise doğrudan ara
+                if isinstance(item['category_id'], ObjectId):
+                    print(f"ObjectId formatında aranıyor: {item['category_id']}")
+                    category = categories_col.find_one({"_id": item['category_id']})
+                
+                # 2. Eğer sayısal ID ise, category_num ile eşleştir
+                elif isinstance(item['category_id'], int) or (isinstance(item['category_id'], str) and item['category_id'].isdigit()):
+                    cat_num = int(item['category_id']) if isinstance(item['category_id'], str) else item['category_id']
+                    print(f"Sayısal ID formatında aranıyor: {cat_num}")
+                    # Önce category_num alanına göre ara
+                    category = categories_col.find_one({"category_num": cat_num})
+                    
+                    # Bulunamadıysa özel bir sorgulama yap - tüm kategoriler içinde sayısal değerleri karşılaştır
+                    if not category:
+                        print(f"Category_num ile bulunamadı, tüm kategorilerde arıyor...")
+                        for cat in categories:
+                            cat_num_from_db = cat.get('category_num')
+                            if cat_num_from_db and cat_num_from_db == cat_num:
+                                category = cat
+                                print(f"Eşleşme bulundu: {cat.get('name')}")
+                                break
+                
+                # 3. Eğer string ObjectId gibi görünüyorsa, ObjectId olarak dönüştürüp dene
+                elif isinstance(item['category_id'], str) and len(item['category_id']) == 24:
+                    print(f"String ObjectId formatında aranıyor: {item['category_id']}")
+                    try:
+                        obj_id = ObjectId(item['category_id'])
+                        category = categories_col.find_one({"_id": obj_id})
+                    except:
+                        print("ObjectId dönüşüm hatası, string olarak aranıyor")
+                        # Belki string olarak tutulan bir ID'dir
+                        category = categories_col.find_one({"_id": item['category_id']})
+                
+                # 4. Diğer tüm durumlar için son çare
+                else:
+                    print(f"String veya diğer formatta aranıyor: {item['category_id']}")
+                    category = categories_col.find_one({"_id": item['category_id']})
+                
+                if category:
+                    category_name = category['name']
+                    print(f"EŞLEŞTİ! Kategori bulundu: {category_name}")
+                else:
+                    print(f"Kategori bulunamadı. Bilinmeyen kategori (ID: {item['category_id']})")
+                    
+                    # Son bir deneme: kategorinin sayısal değer olarak tutulduğu varsayımıyla kıyasla
+                    if isinstance(item['category_id'], int) or (isinstance(item['category_id'], str) and item['category_id'].isdigit()):
+                        cat_id_int = int(item['category_id']) if isinstance(item['category_id'], str) else item['category_id']
+                        for cat in categories:
+                            if str(cat.get('_id')).find(str(cat_id_int)) > -1 or str(cat_id_int) in str(cat.get('_id')):
+                                category_name = cat['name']
+                                print(f"Kısmi eşleşme bulundu: {category_name}")
+                                break
+                        
+                        if category_name == "Bilinmeyen kategori":
+                            # Sayısal ID'ye göre kategorileri kıyasla - bu SQLite'dan aktarılan veriler için
+                            for cat in categories:
+                                if cat.get('category_num') == cat_id_int:
+                                    category_name = cat['name']
+                                    print(f"Kategori ID numarasına göre eşleşme: {category_name}")
+                                    break
+                    
+                    if category_name == "Bilinmeyen kategori":
+                        category_name = f"Bilinmeyen kategori (ID: {item['category_id']})"
+            except Exception as e:
+                print(f"Kategori arama hatası: {str(e)}")
+                category_name = f"Hata: {str(e)}"
+        
+        item['category_name'] = category_name
+    
+    # Kategorilere ID ekle (silme işlemi için)
+    for category in categories:
+        category['id'] = str(category['_id'])
+    
     return render_template('admin.html', categories=categories, items=items)
 
 @app.route('/add_item', methods=['POST'])
