@@ -10,7 +10,7 @@ body {
 
 /* Kategori detayındaki sağ sütun resim kutusu ve görseli */
 .category-image-container {
-  width: 180px;
+  width: 160px;
   height: 150px;
   margin-bottom: 35px;
   border-radius: 14px;
