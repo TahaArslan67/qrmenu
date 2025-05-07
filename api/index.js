@@ -9,6 +9,29 @@ const cookie = require('cookie');
 // MongoDB bağlantısı
 let MONGO_URI = process.env.MONGODB_URI;
 
+// Türkçe karakterleri İngilizce'ye çeviren fonksiyon
+function toAscii(str) {
+  return str
+    .replace(/İ/g, 'I') // Büyük İ'yi büyük I yap
+    .replace(/I/g, 'i') // Büyük I'yı küçük i yap
+    .replace(/Ş/g, 'S')
+    .replace(/Ğ/g, 'G')
+    .replace(/Ü/g, 'U')
+    .replace(/Ö/g, 'O')
+    .replace(/Ç/g, 'C')
+    .replace(/ş/g, 's')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/ı/g, 'i')
+    .toLowerCase()
+    .replace(/ /g, '_')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, ''); // Noktalı harfleri düzleştir
+}
+
+
 // Yerel mock veri
 const mockData = {
   categories: [
@@ -151,11 +174,15 @@ async function renderIndex() {
     
     if (categories.length > 0) {
       categories.forEach(category => {
-        const categoryImgPath = `/static/category_images/${category.name.toLowerCase().replace(/ /g, '_')}.jpg`;
+        // Türkçe karakterleri İngilizce'ye çeviren fonksiyon kullanılsın
+        const categoryNameAscii = toAscii(category.name);
+        const categoryImgPath = `/static/category_images/${categoryNameAscii}.jpg`;
         
         categoriesGridHtml += `
           <a href="/category/${category._id}" class="category-card">
-            <img src="${categoryImgPath}" class="category-img" alt="${category.name}" onerror="this.src='/static/uploads/pide_bg.jpg'">
+            <div class="category-img-container">
+              <img src="${categoryImgPath}" alt="${category.name}" class="category-img" onerror="this.style.display='none'">
+            </div>
             <div class="category-name">${category.name}</div>
           </a>
         `;
@@ -250,19 +277,32 @@ async function renderCategory(categoryId) {
     
     // Ürünleri HTML'e ekle
     html = html.replace('<!-- CATEGORY_ITEMS -->', itemsHtml);
-    
-    // Kategori resimlerini ekle
-    const categoryImages = [];
-    for (let i = 1; i <= 4; i++) {
-      const imgPath = `/static/category_images/${category.name.toLowerCase().replace(/ /g, '_')}_${i}.jpg`;
-      categoryImages.push(imgPath);
-    }
-    
+    // Kategori resimlerini SADECE sağ sütuna ekle (ürünler sütununa ekleme!)
+    // Inline style ile gösterilen renkli kutular ekleyerek görsel bir çözüm sunalım
+    console.log(`Kategori adı: ${category.name}`);
+    const categoryName = toAscii(category.name);
+    const categoryImagesDir = path.join(__dirname, '..', 'static', 'category_images');
     let imagesHtml = '';
-    categoryImages.forEach(imgPath => {
-      imagesHtml += `<img src="${imgPath}" class="category-image" alt="${category.name}" onerror="this.src='/static/uploads/pide_bg.jpg'">`;
-    });
-    
+    try {
+      const files = fs.readdirSync(categoryImagesDir);
+      // [kategori_adı]_1.jpg, [kategori_adı]_2.jpg ... şeklinde olanları sırala
+      // SADECE kategoriismi_1.jpg, kategoriismi_2.jpg gibi dosyaları göster
+      const imageFiles = files.filter(f => f.match(new RegExp(`^${categoryName}_\\d+\\.jpg$`, 'i')));
+      imageFiles.sort();
+      if (imageFiles.length > 0) {
+        // Sadece içerik resimlerini göster (ana kategori resmi asla gösterilmez)
+        imageFiles.forEach(imgFile => {
+          imagesHtml += `<div class="category-image-container"><img src="/static/category_images/${imgFile}" class="category-detail-img" alt="${category.name}" onerror="this.style.display='none'"></div>`;
+        });
+      } else {
+        // Hiç içerik resmi yoksa, hiçbir şey gösterme
+        imagesHtml = '';
+      }
+    } catch (err) {
+      // Hata olursa sadece fallback resmi göster
+      imagesHtml = `<div class="category-image-container"><img src="/static/category_images/${categoryName}.jpg" class="category-detail-img" alt="${category.name}" onerror="this.style.display='none'"></div>`;
+    }
+
     // Resimleri HTML'e ekle
     html = html.replace('<!-- CATEGORY_IMAGES -->', imagesHtml);
     
@@ -1011,21 +1051,6 @@ module.exports = async (req, res) => {
   const url = req.url;
   const method = req.method;
   
-  // CSS ve diğer statik dosyalar için
-  if (url.startsWith('/static/')) {
-    try {
-      const filePath = path.join(__dirname, '..', url);
-      const contentType = getContentType(filePath);
-      
-      const fileContent = fs.readFileSync(filePath);
-      
-      res.setHeader('Content-Type', contentType);
-      return res.end(fileContent);
-    } catch (error) {
-      return res.status(404).end('Dosya bulunamadı');
-    }
-  }
-  
   // Cookies ve session ID'yi çıkar
   const cookies = cookie.parse(req.headers.cookie || '');
   const sessionId = cookies.sessionId;
@@ -1227,6 +1252,31 @@ module.exports = async (req, res) => {
     });
     
     return;
+  }
+  
+  // Statik dosyalar için handler
+  if (url.startsWith('/static/')) {
+    try {
+      // URL'den dosya yolunu al (/static/ kısmını çıkararak)
+      const requestedFilePath = url.substring(7); // '/static/' kısmını çıkar
+      const filePath = path.join(__dirname, '..', 'static', requestedFilePath);
+      
+      // Dosyanın var olup olmadığını kontrol et
+      if (!fs.existsSync(filePath)) {
+        return res.status(404).end('Dosya bulunamadı');
+      }
+      
+      // MIME tipini belirle
+      const contentType = getContentType(filePath);
+      
+      // Dosyayı oku ve gönder
+      const fileContent = fs.readFileSync(filePath);
+      res.setHeader('Content-Type', contentType);
+      return res.status(200).end(fileContent);
+    } catch (error) {
+      console.error('Statik dosya sunma hatası:', error);
+      return res.status(500).end('Dosya sunulurken hata oluştu');
+    }
   }
   
   // 404 - Sayfa bulunamadı

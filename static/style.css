@@ -1,6 +1,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Pacifico&family=Montserrat:wght@700&family=Quicksand:wght@400;700&display=swap');
 
 body {
+
+/* Kategori detayında iki sütun arası boşluk */
+.two-column-layout {
+  display: flex;
+  gap: 28px;
+}
+
+/* Kategori detayındaki sağ sütun resim kutusu ve görseli */
+.category-image-container {
+  width: 180px;
+  height: 150px;
+  margin-bottom: 35px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fafafa;
+  box-shadow: 0 2px 12px #eee5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.images-column {
+  padding-right: 20px;
+}
+.category-detail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
+  margin-right: 18px; /* sağdan boşluk */
+}
+
   font-family: 'Quicksand', Arial, sans-serif;
   background: #fff url('/static/uploads/pide_bg.jpg') center center/cover no-repeat fixed;
   margin: 0;

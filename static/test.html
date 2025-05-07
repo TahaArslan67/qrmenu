@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resim Test Sayfası</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        .image-container { margin: 20px 0; }
+        img { max-width: 300px; border: 1px solid #ddd; margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Resim Test Sayfası</h1>
+    
+    <div class="image-container">
+        <h2>Varsayılan Resim</h2>
+        <img src="/static/uploads/pide_bg.jpg" alt="Varsayılan Arkaplan">
+    </div>
+    
+    <div class="image-container">
+        <h2>Kebap Çeşitleri Resimleri</h2>
+        <img src="/static/category_images/kebap_çeşitleri_1.jpg" alt="Kebap 1">
+        <img src="/static/category_images/kebap_cesitleri_1.jpg" alt="Kebap 1 (Türkçe karaktersiz)">
+    </div>
+
+    <div class="image-container">
+        <h2>Tüm Resim Yolları</h2>
+        <p>Şu resim yolları test ediliyor:</p>
+        <ul>
+            <li>/static/category_images/kebap_çeşitleri_1.jpg</li>
+            <li>/static/category_images/kebap_cesitleri_1.jpg</li>
+            <li>/static/uploads/pide_bg.jpg</li>
+        </ul>
+    </div>
+</body>
+</html>

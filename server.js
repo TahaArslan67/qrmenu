@@ -1,26 +1,24 @@
-const http = require('http');
-const api = require('./api/index');
+const express = require('express');
+const path = require('path');
+const apiHandler = require('./api/index');
+const fs = require('fs');
 
-const PORT = 3001; // 3001 portunu kullanalım - 3000 kullanımda
+const app = express();
+const PORT = 3001;
 
-// Express benzeri bir res.status() fonksiyonu ekleyelim
-const server = http.createServer((req, res) => {
-  // Express'teki res.status() fonksiyonunu taklit edelim
-  res.status = function(code) {
-    this.statusCode = code;
-    return this;
-  };
+// İlk önce statik dosyaları servis et
+// (Statik dosyalar için tüm yolları dene)
+app.use('/static', express.static(path.join(__dirname, 'static')));
+
+// API isteklerini işle
+app.use((req, res, next) => {
+  console.log(`İstek alındı: ${req.method} ${req.url}`);
   
-  // Express'teki res.end() davranışını taklit edelim
-  const originalEnd = res.end;
-  res.end = function(data) {
-    return originalEnd.call(this, data);
-  };
-
-  api(req, res);
+  // API isteklerini işleyen handler
+  apiHandler(req, res);
 });
 
-server.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`QR Menü sunucusu http://localhost:${PORT} adresinde çalışıyor`);
-  console.log('Uygulamayı tarayıcıda açmak için: http://localhost:' + PORT);
+  console.log(`Uygulamayı tarayıcıda açmak için: http://localhost:${PORT}`);
 });
