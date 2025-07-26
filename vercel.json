@@ -4,7 +4,7 @@
     { "src": "api/index.js", "use": "@vercel/node" },
     { "src": "static/**", "use": "@vercel/static" }
   ],
-   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
-  ]
+   "routes": [
+    { "src": "/static/(.*)", "dest": "/static/$1" },
+    { "src": "/(.*)", "dest": "/api/index.js" }
 }
