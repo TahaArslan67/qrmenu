@@ -1,28 +1,30 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "rewrites": [
+  "builds": [
+    { "src": "api/index.js", "use": "@vercel/node" },
+    { "src": "static/**", "use": "@vercel/static" }
+  ],
+  "routes": [
     {
-      "source": "/",
-      "destination": "/index.html"
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
     },
     {
-      "source": "/index",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/index.html",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/",
+      "src": "/",
       "has": [
         {
           "type": "query",
           "key": "fbclid"
         }
       ],
-      "destination": "/index.html"
+      "dest": "/static/index.html"
+    },
+    {
+      "src": "/",
+      "dest": "/static/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index.js"
     }
   ]
 }
