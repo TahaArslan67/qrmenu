@@ -1279,8 +1279,10 @@ module.exports = async (req, res) => {
     }
   }
   
-  // 404 - Sayfa bulunamadı
-  return res.status(404).end('Sayfa bulunamadı');
+  // Eğer hiçbir route eşleşmezse:
+res.writeHead(302, { Location: '/' });
+return res.end();
+
 };
 
 // MIME tipini belirle
