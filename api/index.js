@@ -266,6 +266,7 @@ async function renderCategory(categoryId) {
           <li class="menu-item-row">
             <div class="menu-item-info">
               <span class="menu-item-name">${item.name}</span>
+              ${item.description ? `<div class="menu-item-desc">${item.description}</div>` : ''}
             </div>
             <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
           </li>
