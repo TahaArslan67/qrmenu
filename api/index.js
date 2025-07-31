@@ -353,17 +353,18 @@ async function renderMenu() {
         
         // Bu kategoriye ait ürünleri filtrele
         const categoryItems = items.filter(item => {
-  try {
-    if (!item.category_id) return false;
-    // 1. ObjectId veya string olarak tam eşleşme
-    if (item.category_id.toString() === category._id.toString()) return true;
-    // 2. Kategori objesi olarak tutuluyorsa (ör: { _id: ... })
-    if (typeof item.category_id === 'object' && item.category_id._id && item.category_id._id.toString() === category._id.toString()) return true;
-    return false;
-  } catch (e) {
-    return false;
-  }
-});
+          try {
+            if (typeof item.category_id === 'undefined' || typeof category.category_num === 'undefined') return false;
+            // Numeric eşleşme
+            const match = Number(item.category_id) === Number(category.category_num);
+            if (match) {
+              console.log('Kategori eşleşmesi:', { item: item.name, item_cat: item.category_id, cat_num: category.category_num });
+            }
+            return match;
+          } catch (e) {
+            return false;
+          }
+        });
         
         // Kategoriye ait ürünleri ekle
         if (categoryItems.length > 0) {
@@ -660,30 +661,45 @@ async function handleAddItem(body, sessionId) {
   try {
     const db = await connectToDatabase();
     
-    // Kategori ID'si doğrulama
-    let categoryObjId;
+    // Kategori numarasını bul ve category_id olarak kaydet
+    let categoryNum;
     try {
+      let category;
       if (!useLocalData) {
-        categoryObjId = new ObjectId(category_id);
+        // Production: category_id is ObjectId (_id of categories)
+        const catObjId = new ObjectId(category_id);
+        category = await db.collection('categories').findOne({ _id: catObjId });
       } else {
-        categoryObjId = category_id;
+        // Local mock: category_id is string _id
+        category = mockData.categories.find(c => c._id === category_id || c.category_num == category_id);
       }
+      if (!category || typeof category.category_num === 'undefined') {
+        console.error('Kategori bulunamadı veya category_num yok:', category_id, category);
+        return {
+          statusCode: 400,
+          body: `Hata: Seçilen kategori bulunamadı veya category_num tanımsız. Lütfen geçerli bir kategori seçin.`,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8'
+          }
+        };
+      }
+      categoryNum = category.category_num;
     } catch (err) {
-      console.error('Geçersiz kategori ID:', category_id, err);
+      console.error('Kategori numarası alınamadı:', category_id, err);
       return {
         statusCode: 400,
-        body: `Hata: Geçersiz kategori ID'si. Lütfen geçerli bir kategori seçin.`,
+        body: `Hata: Kategori numarası alınamadı. Lütfen geçerli bir kategori seçin.`,
         headers: {
           'Content-Type': 'text/html; charset=utf-8'
         }
       };
     }
-    
+
     const result = await db.collection('items').insertOne({
       name,
       description: description || '',
       price: parseFloat(price),
-      category_id: categoryObjId
+      category_id: categoryNum
     });
     
     return {
