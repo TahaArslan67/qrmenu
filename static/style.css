@@ -493,6 +493,15 @@ body {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
 }
 
+.menu-item-desc {
+  font-size: 0.91rem;
+  color: #888;
+  margin-top: 2px;
+  line-height: 1.3;
+  font-weight: 400;
+  text-align: center;
+}
+
 /* Kategori başlığı */
 .category-title {
   font-family: 'Montserrat', Arial, sans-serif;
