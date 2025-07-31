@@ -350,12 +350,17 @@ async function renderMenu() {
         
         // Bu kategoriye ait ürünleri filtrele
         const categoryItems = items.filter(item => {
-          try {
-            return item.category_id && item.category_id.toString() === category._id.toString();
-          } catch (e) {
-            return false;
-          }
-        });
+  try {
+    if (!item.category_id) return false;
+    // 1. ObjectId veya string olarak tam eşleşme
+    if (item.category_id.toString() === category._id.toString()) return true;
+    // 2. Kategori objesi olarak tutuluyorsa (ör: { _id: ... })
+    if (typeof item.category_id === 'object' && item.category_id._id && item.category_id._id.toString() === category._id.toString()) return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+});
         
         // Kategoriye ait ürünleri ekle
         if (categoryItems.length > 0) {
