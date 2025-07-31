@@ -19,8 +19,11 @@
                         {% if item['category_id'] == category['_id'] %}
                         <li class="menu-item-row">
                             <div class="menu-item-info">
-                                <span class="menu-item-name">{{ item['name'] }}</span>
-                            </div>
+    <span class="menu-item-name">{{ item['name'] }}</span>
+    {% if item['description'] %}
+        <div class="menu-item-desc">{{ item['description'] }}</div>
+    {% endif %}
+</div>
                             <span class="menu-item-price">{{ '%.0f' % item['price'] }} ₺</span>
                             <img src="{{ item['img_url'] }}" class="menu-img-thumb" alt="{{ item['name'] }}">
                         </li>
