@@ -105,15 +105,19 @@ def add_category():
     if not session.get('admin'):
         return redirect(url_for('login'))
     name = request.form['name']
-    categories_col.insert_one({'name': name})
+    # Otomatik sıralı int id ata
+    last_category = categories_col.find_one(sort=[('category_num', -1)])
+    next_id = (last_category['category_num'] + 1) if last_category and 'category_num' in last_category else 1
+    categories_col.insert_one({'name': name, 'category_num': next_id})
     return redirect(url_for('admin_panel'))
 
 @app.route('/delete_category/<category_id>')
 def delete_category(category_id):
     if not session.get('admin'):
         return redirect(url_for('login'))
-    categories_col.delete_one({'_id': ObjectId(category_id)})
-    items_col.delete_many({'category_id': ObjectId(category_id)})
+    # Kategori ve ürünleri int category_num ile sil
+    categories_col.delete_one({'category_num': int(category_id)})
+    items_col.delete_many({'category_id': int(category_id)})
     return redirect(url_for('admin_panel'))
 
 @app.route('/image/<image_id>')
