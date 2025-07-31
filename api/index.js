@@ -368,6 +368,7 @@ async function renderMenu() {
         // Kategoriye ait ürünleri ekle
         if (categoryItems.length > 0) {
           categoryItems.forEach(item => {
+            console.log('HTML ekleniyor:', { kategori: category.name, urun: item.name, id: item._id, cat_id: item.category_id });
             menuContent += `
               <li class="menu-item-row">
                 <div class="menu-item-info">
