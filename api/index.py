@@ -68,22 +68,17 @@ def add_item():
     description = request.form['description']
     price = float(request.form['price'])
     category_id = request.form['category_id']
-    # Artık resim yok
     if not category_id:
         flash('Lütfen bir kategori seçin!')
         return redirect(url_for('admin_panel'))
     try:
-        obj_category_id = None
-        try:
-            obj_category_id = ObjectId(category_id)
-        except Exception as e:
-            flash('Kategori ID hatası: ' + str(e))
-            return redirect(url_for('admin_panel'))
+        # Kategori ID'yi int olarak kaydet
+        category_id_int = int(category_id)
         result = items_col.insert_one({
             'name': name,
             'description': description,
             'price': price,
-            'category_id': obj_category_id
+            'category_id': category_id_int
         })
         if not result.acknowledged:
             flash('Ürün eklenemedi (MongoDB insert başarısız)!')
