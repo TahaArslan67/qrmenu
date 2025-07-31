@@ -674,7 +674,7 @@ async function handleAddItem(body, sessionId) {
       name,
       description: description || '',
       price: parseFloat(price),
-      category_id: categoryObjId
+      category_id: parseInt(category_id, 10)
     });
     
     return {
