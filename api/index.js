@@ -248,7 +248,7 @@ async function renderCategory(categoryId) {
     
     // Ürünleri debug için göster
     items.forEach((item, index) => {
-      console.log(`${index+1}. Ürün: ${item.name}, Fiyat: ${item.price}, Kategori: ${item.category_id}`);
+      console.log(`${index+1}. Ürün: ${item.name}, Fiyat: ${item.price}, Kategori: ${item.category_id}, Açıklama: ${item.description ? item.description : 'Açıklama yok'}`);
     });
     
     // HTML şablonunu oku
