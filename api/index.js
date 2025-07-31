@@ -670,22 +670,11 @@ async function handleAddItem(body, sessionId) {
       };
     }
     
-    // category_id'yi güvenli şekilde al
-    const catIdNum = Number(category_id);
-    if (!catIdNum || catIdNum < 1 || catIdNum > 15) {
-      return {
-        statusCode: 400,
-        body: `Hata: Geçersiz kategori ID'si. Lütfen 1-15 arası bir kategori seçin.`,
-        headers: {
-          'Content-Type': 'text/html; charset=utf-8'
-        }
-      };
-    }
     const result = await db.collection('items').insertOne({
       name,
       description: description || '',
       price: parseFloat(price),
-      category_id: catIdNum
+      category_id: categoryObjId
     });
     
     return {
