@@ -349,6 +349,10 @@ async function renderMenu() {
       categories.forEach(category => {
         // Kategori başlığını ekle
         menuContent += `<div class="menu-section-title" data-category="${category.name}">${category.name}</div>`;
+        // Sadece Kampanyalı Menüler için not ekle
+        if (category._id === '688b2980370fab1d858d7d6a' || Number(category.category_num) === 6) {
+          menuContent += `<div class="menu-category-note" style="margin:8px 0 8px 0;padding:8px 12px;background:#ffe8b2;color:#a05a00;border-radius:6px;font-size:15px;">Karışık, kıymalı, kaşarlı, kuşbaşılı, sucuklu veya peynirli pide seçeneklerinden birini seçebilirsin.</div>`;
+        }
         menuContent += '<ul class="menu-list">';
         
         // Bu kategoriye ait ürünleri filtrele
