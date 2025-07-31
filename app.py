@@ -32,6 +32,7 @@ def menu():
     categories = list(categories_col.find())
     items = list(items_col.find())
     for item in items:
+        print('DEBUG ITEM:', item)  # Debug için ürünleri konsola yazdır
         img_base = item['name'].lower().replace(' ', '_')
         jpg_path = os.path.join('static', 'uploads', img_base + '.jpg')
         png_path = os.path.join('static', 'uploads', img_base + '.png')
