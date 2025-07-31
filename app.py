@@ -29,6 +29,7 @@ gfs = GridFS(db)
 
 @app.route('/')
 def menu():
+    raise Exception("MENÜ FONKSİYONU ÇALIŞTI")
     categories = list(categories_col.find())
     items = list(items_col.find())
     for item in items:
