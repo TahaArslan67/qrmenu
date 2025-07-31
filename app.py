@@ -5,7 +5,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 from gridfs import GridFS
 import io
-
+print("ÇALIŞAN DOSYA:", os.path.abspath(__file__))
 # Conditionally import PIL
 PIL_AVAILABLE = False
 try:

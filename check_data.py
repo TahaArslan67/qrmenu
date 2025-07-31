@@ -27,11 +27,7 @@ def check_data():
             print(f"   ObjectID: {category['_id']}")
             print(f"   Sayısal ID (category_num): {category.get('category_num')}")
             
-            # Her kategoriye ait ürünleri say ve açıklamaları yazdır
-            urunler = list(items_col.find({'category_id': category['_id']}))
-            print(f"   Bu kategoriye ait {len(urunler)} ürün var.")
-            for urun in urunler:
-                print(f"      Ürün: {urun.get('name')} | Açıklama: {urun.get('description')}")
+            # Her kategoriye ait ürünleri say
             obj_id_count = items_col.count_documents({'category_id': str(category['_id'])})
             num_id_count = items_col.count_documents({'category_id': category.get('category_num')})
             
