@@ -31,7 +31,6 @@ gfs = GridFS(db)
 def menu():
     categories = list(categories_col.find())
     items = list(items_col.find())
-    # Her ürün için uygun görsel yolunu belirle
     for item in items:
         img_base = item['name'].lower().replace(' ', '_')
         jpg_path = os.path.join('static', 'uploads', img_base + '.jpg')
@@ -42,6 +41,10 @@ def menu():
             item['img_url'] = '/static/uploads/' + img_base + '.png'
         else:
             item['img_url'] = '/static/uploads/placeholder.png'
+        # Kategori id'sini stringe çevir
+        item['category_id_str'] = str(item.get('category_id', ''))
+    for category in categories:
+        category['_id_str'] = str(category.get('_id', ''))
     return render_template('menu.html', categories=categories, items=items)
 
 @app.route('/login', methods=['GET', 'POST'])
