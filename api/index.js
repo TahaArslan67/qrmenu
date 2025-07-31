@@ -342,6 +342,9 @@ async function renderMenu() {
     // Kategorileri ve ürünleri ekle
     let menuContent = '';
     
+    // Kategori ve ürün id'lerini ve tiplerini logla
+    console.log('Kategoriler:', categories.map(c => ({ _id: c._id, type: typeof c._id })));
+    console.log('Ürünler:', items.map(i => ({ name: i.name, category_id: i.category_id, type: typeof i.category_id })));
     if (categories.length > 0) {
       categories.forEach(category => {
         // Kategori başlığını ekle
