@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const querystring = require('querystring');
+const https = require('https');
 const cookie = require('cookie');
 
 // MongoDB bağlantısı
@@ -1226,6 +1227,157 @@ function handleLogout() {
   };
 }
 
+// OpenAI API çağrısı
+function callOpenAI(payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const request = https.request({
+      hostname: 'api.openai.com',
+      port: 443,
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (process.env.OPENAI_API_KEY || ''),
+        'Content-Length': Buffer.byteLength(data)
+      }
+    }, (response) => {
+      let body = '';
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try {
+            const json = JSON.parse(body);
+            resolve(json.choices[0].message.content);
+          } catch (e) {
+            reject(new Error('OpenAI yanıtı çözümlenemedi: ' + body));
+          }
+        } else {
+          reject(new Error('OpenAI hatası ' + response.statusCode + ': ' + body));
+        }
+      });
+    });
+    request.on('error', reject);
+    request.write(data);
+    request.end();
+  });
+}
+
+// AI işlemlerini veritabanına uygula
+async function applyAiOperation(db, op) {
+  if (!op || !op.action) throw new Error('Geçersiz operasyon');
+  switch (op.action) {
+    case 'add_category': {
+      if (!op.data || !op.data.name) throw new Error('Eksik kategori adı');
+      await db.collection('categories').insertOne({ name: op.data.name, category_num: op.data.category_num || 0 });
+      break;
+    }
+    case 'update_category': {
+      if (!op.target_name) throw new Error('Hedef kategori adı eksik');
+      const cat = await db.collection('categories').findOne({ name: op.target_name });
+      if (!cat) throw new Error('Kategori bulunamadı: ' + op.target_name);
+      const set = {};
+      if (op.data.name !== undefined) set.name = op.data.name;
+      if (op.data.category_num !== undefined) set.category_num = op.data.category_num;
+      await db.collection('categories').updateOne({ _id: cat._id }, { $set: set });
+      break;
+    }
+    case 'delete_category': {
+      if (!op.target_name) throw new Error('Hedef kategori adı eksik');
+      const cat = await db.collection('categories').findOne({ name: op.target_name });
+      if (!cat) throw new Error('Kategori bulunamadı: ' + op.target_name);
+      await db.collection('items').deleteMany({ category_id: cat.category_num });
+      await db.collection('categories').deleteOne({ _id: cat._id });
+      break;
+    }
+    case 'add_item': {
+      if (!op.data || !op.data.name || op.data.price === undefined || !op.data.category_name) {
+        throw new Error('Eksik ürün bilgisi');
+      }
+      const cat = await db.collection('categories').findOne({ name: op.data.category_name });
+      const categoryNum = cat ? cat.category_num : 0;
+      await db.collection('items').insertOne({
+        name: op.data.name,
+        description: op.data.description || '',
+        price: parseFloat(op.data.price) || 0,
+        category_id: categoryNum,
+        img_url: op.data.img_url || '',
+        is_featured: !!op.data.is_featured
+      });
+      break;
+    }
+    case 'update_item': {
+      if (!op.target_name) throw new Error('Hedef ürün adı eksik');
+      const item = await db.collection('items').findOne({ name: op.target_name });
+      if (!item) throw new Error('Ürün bulunamadı: ' + op.target_name);
+      const set = {};
+      if (op.data.name !== undefined) set.name = op.data.name;
+      if (op.data.price !== undefined) set.price = parseFloat(op.data.price) || 0;
+      if (op.data.description !== undefined) set.description = op.data.description;
+      if (op.data.img_url !== undefined) set.img_url = op.data.img_url;
+      if (op.data.is_featured !== undefined) set.is_featured = !!op.data.is_featured;
+      if (op.data.category_name) {
+        const cat = await db.collection('categories').findOne({ name: op.data.category_name });
+        if (cat) set.category_id = cat.category_num;
+      }
+      await db.collection('items').updateOne({ _id: item._id }, { $set: set });
+      break;
+    }
+    case 'delete_item': {
+      if (!op.target_name) throw new Error('Hedef ürün adı eksik');
+      await db.collection('items').deleteOne({ name: op.target_name });
+      break;
+    }
+    default:
+      throw new Error('Bilinmeyen işlem: ' + op.action);
+  }
+}
+
+// AI ile menü güncelleme
+async function handleAiUpdate(prompt, imageData, sessionId) {
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Yetkisiz erişim' }) };
+  }
+  if (!process.env.OPENAI_API_KEY) {
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'OPENAI_API_KEY ortam değişkeni tanımlanmamış' }) };
+  }
+  try {
+    const db = await connectToDatabase();
+    const categories = await db.collection('categories').find({}).toArray();
+    const items = await db.collection('items').find({}).toArray();
+    const currentMenu = categories.map(c => {
+      const catItems = items.filter(i => Number(i.category_id) === Number(c.category_num)).map(i => ({ name: i.name, price: i.price, description: i.description, is_featured: i.is_featured, img_url: i.img_url }));
+      return { name: c.name, category_num: c.category_num, items: catItems };
+    });
+    const systemPrompt = `You are a restaurant menu manager for "Gözde Pide". Current menu is provided as JSON. The user gives a request in Turkish and/or a menu photo. Return ONLY a JSON object with key "operations" (array). Each operation: { action: "add_category" | "update_category" | "delete_category" | "add_item" | "update_item" | "delete_item", target_name?: string, data?: object }. Category data: name, category_num. Item data: name, price (number), description, category_name, is_featured (boolean), img_url. For update/delete, target_name is the current name. Do not output markdown.`;
+    const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: [] }];
+    const userContent = [];
+    let userText = 'Mevcut menü: ' + JSON.stringify(currentMenu);
+    if (prompt) userText += '\\n\\nKullanıcı isteği: ' + prompt;
+    userContent.push({ type: 'text', text: userText });
+    if (imageData) userContent.push({ type: 'image_url', image_url: { url: imageData } });
+    messages[1].content = userContent;
+    const payload = { model: 'gpt-4o-mini', messages, temperature: 0.2, max_tokens: 2048 };
+    const resultText = await callOpenAI(payload);
+    const cleaned = resultText.replace(/^```json\\s*/, '').replace(/```\\s*$/, '').trim();
+    const parsed = JSON.parse(cleaned);
+    const operations = parsed.operations || [];
+    const operationResults = [];
+    for (const op of operations) {
+      try {
+        await applyAiOperation(db, op);
+        operationResults.push(op.action + ' başarılı');
+      } catch (e) {
+        operationResults.push(op.action + ' hata: ' + e.message);
+      }
+    }
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, message: 'AI güncellemesi tamamlandı: ' + operationResults.join(', ') }) };
+  } catch (error) {
+    console.error('AI güncelleme hatası:', error);
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Hata: ' + error.message }) };
+  }
+}
+
 // API handler
 module.exports = async (req, res) => {
   const url = req.url;
@@ -1457,6 +1609,26 @@ module.exports = async (req, res) => {
     return;
   }
   
+  // AI menü güncelleme
+  if (url === '/ai_update' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const json = body ? JSON.parse(body) : {};
+        const result = await handleAiUpdate(json.prompt || '', json.image_data || '', sessionId);
+        if (result.headers) {
+          Object.entries(result.headers).forEach(([key, value]) => res.setHeader(key, value));
+        }
+        return res.status(result.statusCode).end(result.body);
+      } catch (error) {
+        console.error('AI endpoint hatası:', error);
+        return res.status(500).end(JSON.stringify({ success: false, message: 'Hata: ' + error.message }));
+      }
+    });
+    return;
+  }
+
   // Statik dosyalar için handler
   if (url.startsWith('/static/')) {
     try {

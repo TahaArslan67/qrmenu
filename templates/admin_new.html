@@ -28,6 +28,14 @@
     <div class="container">
         <h1>Gözde Pide Menü Yönetici Paneli <a href="/logout" class="logout">Çıkış Yap</a></h1>
         
+        <h2>AI ile Menü Güncelle</h2>
+        <form id="ai-form">
+            <textarea id="ai-prompt" placeholder="Örn: Adana Kebabın fiyatını 300 yap, yeni bir Tatlılar kategorisi ekle..." rows="4" style="width:100%;"></textarea>
+            <input type="file" id="ai-image" accept="image/*" style="margin:10px 0;">
+            <button type="button" id="ai-submit" style="background:#2196F3;">AI ile Güncelle</button>
+        </form>
+        <div id="ai-result" style="margin:10px 0;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;display:none;"></div>
+        
         <h2 id="category-form-title">Kategori Ekle</h2>
         <form method="post" action="/add_category" id="category-form">
             <input type="hidden" name="category_id" id="category-id">
@@ -70,7 +78,8 @@
         </form>
         
         <h2>Ürünler</h2>
-        <table>
+        <input type="text" id="product-search" class="search-input" placeholder="Ürün ara..." autocomplete="off">
+        <table id="items-table">
             <thead>
                 <tr>
                     <th>Ürün Adı</th>
@@ -159,6 +168,49 @@
             document.getElementById('item-submit-btn').textContent = 'Ürün Ekle';
             document.getElementById('item-form').action = '/add_item';
             document.getElementById('cancel-edit').style.display = 'none';
+        });
+        // Ürün arama
+        document.getElementById('product-search').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase().trim();
+            document.querySelectorAll('#items-table tbody tr').forEach(function(row) {
+                const nameCell = row.querySelector('td');
+                const name = nameCell ? nameCell.textContent.toLowerCase() : '';
+                row.style.display = name.includes(term) ? '' : 'none';
+            });
+        });
+
+        // AI güncelleme
+        document.getElementById('ai-submit').addEventListener('click', async function() {
+            const prompt = document.getElementById('ai-prompt').value;
+            const fileInput = document.getElementById('ai-image');
+            const resultDiv = document.getElementById('ai-result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'İşleniyor...';
+
+            const sendUpdate = async function(imageData) {
+                try {
+                    const res = await fetch('/ai_update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt, image_data: imageData || '' })
+                    });
+                    const data = await res.json();
+                    resultDiv.textContent = data.message || (data.success ? 'Tamamlandı' : 'Hata oluştu');
+                    if (data.success) {
+                        setTimeout(function() { window.location.reload(); }, 1200);
+                    }
+                } catch (err) {
+                    resultDiv.textContent = 'Hata: ' + err.message;
+                }
+            };
+
+            if (fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) { sendUpdate(e.target.result); };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                await sendUpdate('');
+            }
         });
     </script>
     <!-- ADMIN_ITEMS_DATA -->
