@@ -165,6 +165,10 @@ async function renderIndex() {
   try {
     const db = await connectToDatabase();
     const categories = await db.collection('categories').find({}).toArray();
+    const items = await db.collection('items').find({}).toArray();
+    
+    // Kategorileri sırala
+    categories.sort((a, b) => (Number(a.category_num) || 0) - (Number(b.category_num) || 0));
     
     // HTML şablonunu oku
     let html = indexTemplate;
@@ -181,7 +185,7 @@ async function renderIndex() {
         categoriesGridHtml += `
           <a href="/category/${category._id}" class="category-card">
             <div class="category-img-container">
-              <img src="${categoryImgPath}" alt="${category.name}" class="category-img" onerror="this.style.display='none'">
+              <img src="${categoryImgPath}" alt="${category.name}" class="category-img" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
             </div>
             <div class="category-name">${category.name}</div>
           </a>
@@ -191,7 +195,34 @@ async function renderIndex() {
       categoriesGridHtml = '<p class="no-items">Henüz kategori bulunmamaktadır.</p>';
     }
     
+    // Öne çıkan ürünleri hazırla
+    let featuredHtml = '';
+    if (items.length > 0) {
+      const featuredItems = items.filter(i => i.is_featured);
+      if (featuredItems.length > 0) {
+        featuredHtml = `<div class="featured-section"><h2 class="featured-title">Öne Çıkanlar</h2><ul class="menu-list">`;
+        featuredItems.forEach(item => {
+          if (!item.img_url) {
+            const imgBase = item.name.toLowerCase().replace(/ /g, '_');
+            item.img_url = `/static/uploads/${imgBase}.jpg`;
+          }
+          featuredHtml += `
+            <li class="menu-item-row">
+              <div class="menu-item-info">
+                <span class="menu-item-name">${item.name}</span>
+                ${item.description ? `<div class="menu-item-desc">${item.description}</div>` : ''}
+              </div>
+              <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
+              <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
+            </li>
+          `;
+        });
+        featuredHtml += '</ul></div>';
+      }
+    }
+    
     // Kategori grid içeriğini HTML'e ekle
+    html = html.replace('<!-- FEATURED_ITEMS -->', featuredHtml || '');
     html = html.replace('<!-- CATEGORIES_GRID -->', categoriesGridHtml);
     
     return {
@@ -251,6 +282,14 @@ async function renderCategory(categoryId) {
       console.log(`${index+1}. Ürün: ${item.name}, Fiyat: ${item.price}, Kategori: ${item.category_id}, Açıklama: ${item.description ? item.description : 'Açıklama yok'}`);
     });
     
+    // Ürünlere resim URL'si ekle (yoksa isim bazlı)
+    items.forEach(item => {
+      if (!item.img_url) {
+        const imgBase = item.name.toLowerCase().replace(/ /g, '_');
+        item.img_url = `/static/uploads/${imgBase}.jpg`;
+      }
+    });
+    
     // HTML şablonunu oku
     let html = categoryTemplate;
     
@@ -269,6 +308,7 @@ async function renderCategory(categoryId) {
               ${item.description ? `<div class="menu-item-desc">${item.description}</div>` : ''}
             </div>
             <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
+            <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
           </li>
         `;
       });
@@ -293,7 +333,7 @@ async function renderCategory(categoryId) {
       if (imageFiles.length > 0) {
         // Sadece içerik resimlerini göster (ana kategori resmi asla gösterilmez)
         imageFiles.forEach(imgFile => {
-          imagesHtml += `<div class="category-image-container"><img src="/static/category_images/${imgFile}" class="category-detail-img" alt="${category.name}" onerror="this.style.display='none'"></div>`;
+          imagesHtml += `<div class="category-image-container"><img src="/static/category_images/${imgFile}" class="category-detail-img" alt="${category.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'"></div>`;
         });
       } else {
         // Hiç içerik resmi yoksa, hiçbir şey gösterme
@@ -301,7 +341,7 @@ async function renderCategory(categoryId) {
       }
     } catch (err) {
       // Hata olursa sadece fallback resmi göster
-      imagesHtml = `<div class="category-image-container"><img src="/static/category_images/${categoryName}.jpg" class="category-detail-img" alt="${category.name}" onerror="this.style.display='none'"></div>`;
+      imagesHtml = `<div class="category-image-container"><img src="/static/category_images/${categoryName}.jpg" class="category-detail-img" alt="${category.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'"></div>`;
     }
 
     // Resimleri HTML'e ekle
@@ -330,10 +370,15 @@ async function renderMenu() {
     const categories = await db.collection('categories').find({}).toArray();
     const items = await db.collection('items').find({}).toArray();
     
+    // Kategorileri sırala
+    categories.sort((a, b) => (Number(a.category_num) || 0) - (Number(b.category_num) || 0));
+    
     // Ürünlere resim URL'si ekle
     items.forEach(item => {
-      const imgBase = item.name.toLowerCase().replace(/ /g, '_');
-      item.img_url = `/static/uploads/${imgBase}.jpg`;
+      if (!item.img_url) {
+        const imgBase = item.name.toLowerCase().replace(/ /g, '_');
+        item.img_url = `/static/uploads/${imgBase}.jpg`;
+      }
     });
     
     // HTML şablonunu oku
@@ -380,7 +425,7 @@ async function renderMenu() {
                   <span class="menu-item-name">${item.name}</span>
                 </div>
                 <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
-                <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.src='/static/uploads/pide_bg.jpg'">
+                <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
               </li>
             `;
           });
@@ -541,7 +586,7 @@ async function renderAdmin(sessionId) {
       
       itemsHtml += `
         <tr>
-          <td>${item.name}</td>
+          <td>${item.name} ${item.is_featured ? '⭐' : ''}</td>
           <td>${categoryName}</td>
           <td>${parseFloat(item.price).toFixed(0)} ₺</td>
           <td>
@@ -554,6 +599,23 @@ async function renderAdmin(sessionId) {
     
     // Ürün listesini HTML'e ekle
     html = html.replace('<!-- ITEMS_LIST -->', itemsHtml);
+    
+    // Admin paneli JS verilerini hazırla
+    const adminItemsData = items.map(i => ({
+      _id: i._id ? i._id.toString() : i._id,
+      name: i.name,
+      description: i.description || '',
+      price: i.price,
+      category_id: i.category_id,
+      img_url: i.img_url || '',
+      is_featured: !!i.is_featured
+    }));
+    const adminCategoriesData = categories.map(c => ({
+      _id: c._id ? c._id.toString() : c._id,
+      name: c.name,
+      category_num: c.category_num
+    }));
+    html = html.replace('<!-- ADMIN_ITEMS_DATA -->', `<script>window.adminItems = ${JSON.stringify(adminItemsData)}; window.adminCategories = ${JSON.stringify(adminCategoriesData)};</script>`);
     
     return {
       statusCode: 200,
@@ -633,7 +695,7 @@ async function handleAddItem(body, sessionId) {
   console.log('Ürün ekleme verileri:', body);
   
   // Form verilerini kontrol et
-  let name, description, price, category_id;
+  let name, description, price, category_id, img_url, is_featured;
   
   if (typeof body === 'string') {
     // URL kodlu form verisi
@@ -642,12 +704,16 @@ async function handleAddItem(body, sessionId) {
     description = params.description;
     price = params.price;
     category_id = params.category_id;
+    img_url = params.img_url || '';
+    is_featured = params.is_featured === '1' || params.is_featured === 'on' || params.is_featured === true;
   } else {
     // Veri zaten ayrıştırılmış nesne olarak gelmiş
     name = body.name;
     description = body.description;
     price = body.price;
     category_id = body.category_id;
+    img_url = body.img_url || '';
+    is_featured = body.is_featured === true || body.is_featured === '1' || body.is_featured === 'on';
   }
   
   console.log('İşlenmiş ürün ekleme parametreleri:', { name, description, price, category_id });
@@ -703,7 +769,9 @@ async function handleAddItem(body, sessionId) {
       name,
       description: description || '',
       price: parseFloat(price),
-      category_id: categoryNum
+      category_id: categoryNum,
+      img_url: img_url || '',
+      is_featured: !!is_featured
     });
     
     return {
@@ -745,18 +813,20 @@ async function handleAddCategory(body, sessionId) {
   console.log('Kategori ekleme verileri:', body);
   
   // Form verilerini kontrol et
-  let name;
+  let name, category_num;
   
   if (typeof body === 'string') {
     // URL kodlu form verisi
     const params = querystring.parse(body);
     name = params.name;
+    category_num = parseInt(params.category_num) || 0;
   } else {
     // Veri zaten ayrıştırılmış nesne olarak gelmiş
     name = body.name;
+    category_num = parseInt(body.category_num) || 0;
   }
   
-  console.log('Kategori adı:', name);
+  console.log('Kategori adı:', name, 'Sıra:', category_num);
   
   if (!name) {
     return {
@@ -772,7 +842,8 @@ async function handleAddCategory(body, sessionId) {
     const db = await connectToDatabase();
     
     const result = await db.collection('categories').insertOne({
-      name
+      name,
+      category_num
     });
     
     return {
@@ -970,6 +1041,8 @@ async function handleEditItem(body, sessionId) {
     const description = body.description || '';
     const price = parseFloat(body.price);
     const categoryId = body.category_id;
+    const img_url = body.img_url || '';
+    const is_featured = body.is_featured === true || body.is_featured === '1' || body.is_featured === 'on';
     
     // Veri kontrolü
     if (!name || isNaN(price) || !categoryId) {
@@ -1032,7 +1105,9 @@ async function handleEditItem(body, sessionId) {
           name: name,
           description: description,
           price: price,
-          category_id: categoryIdNum  // Sayısal kategori ID'yi kullan
+          category_id: categoryIdNum,  // Sayısal kategori ID'yi kullan
+          img_url: img_url,
+          is_featured: !!is_featured
         }
       }
     );

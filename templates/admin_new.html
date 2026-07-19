@@ -31,6 +31,7 @@
         <h2>Kategori Ekle</h2>
         <form method="post" action="/add_category">
             <input type="text" name="name" placeholder="Kategori adı" required>
+            <input type="number" name="category_num" placeholder="Sıra numarası" required value="0">
             <button type="submit">Kategori Ekle</button>
         </form>
         
@@ -53,6 +54,11 @@
             <input type="text" name="name" placeholder="Ürün adı" required id="item-name">
             <textarea name="description" placeholder="Açıklama" id="item-description"></textarea>
             <input type="number" name="price" placeholder="Fiyat" step="0.01" required id="item-price">
+            <input type="url" name="img_url" placeholder="Görsel URL (opsiyonel)" id="item-img-url">
+            <label style="display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer;">
+              <input type="checkbox" name="is_featured" value="1" id="item-is-featured">
+              <span>Öne çıkan ürün olarak işaretle</span>
+            </label>
             <select name="category_id" required id="category-select">
                 <option value="">Kategori seçin</option>
                 <!-- CATEGORIES_OPTIONS -->
@@ -95,13 +101,21 @@
         });
 
         // Düzenleme işlevi
-        function editItem(itemId, name, description, price, categoryId) {
+        function editItem(itemId) {
+            const item = (window.adminItems || []).find(i => i._id === itemId);
+            const categories = window.adminCategories || [];
+            if (!item) return;
+            
             // Form alanlarını doldur
-            document.getElementById('item-id').value = itemId;
-            document.getElementById('item-name').value = name;
-            document.getElementById('item-description').value = description || '';
-            document.getElementById('item-price').value = price;
-            document.getElementById('category-select').value = categoryId;
+            document.getElementById('item-id').value = item._id;
+            document.getElementById('item-name').value = item.name;
+            document.getElementById('item-description').value = item.description || '';
+            document.getElementById('item-price').value = item.price;
+            document.getElementById('item-img-url').value = item.img_url || '';
+            document.getElementById('item-is-featured').checked = !!item.is_featured;
+            
+            const cat = categories.find(c => c.category_num == item.category_id || c._id === item.category_id);
+            document.getElementById('category-select').value = cat ? cat._id : '';
             
             // Form başlığını ve buton metnini güncelle
             document.getElementById('item-submit-btn').textContent = 'Ürünü Güncelle';
@@ -124,5 +138,6 @@
             document.getElementById('cancel-edit').style.display = 'none';
         });
     </script>
+    <!-- ADMIN_ITEMS_DATA -->
 </body>
 </html>

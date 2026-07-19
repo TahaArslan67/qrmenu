@@ -12,9 +12,28 @@
     <div class="menu-container">
         <div class="menu-header">Gözde Pide Menü</div>
         <div class="menu-section">
+            <input type="text" id="menu-search" class="search-input" placeholder="Ürün veya kategori ara..." autocomplete="off">
             <!-- MENU_CONTENT -->
         </div>
         <div class="menu-footer">Afiyet olsun!</div>
     </div>
+    <script>
+      document.getElementById('menu-search').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase().trim();
+        document.querySelectorAll('.menu-item-row').forEach(function(row) {
+          const name = row.querySelector('.menu-item-name').textContent.toLowerCase();
+          row.style.display = name.includes(term) ? '' : 'none';
+        });
+        document.querySelectorAll('.menu-section-title').forEach(function(title) {
+          let ul = title.nextElementSibling;
+          while (ul && !ul.classList.contains('menu-list')) {
+            ul = ul.nextElementSibling;
+          }
+          const rows = ul ? ul.querySelectorAll('.menu-item-row') : [];
+          const hasVisible = Array.from(rows).some(r => r.style.display !== 'none');
+          title.style.display = hasVisible ? '' : 'none';
+        });
+      });
+    </script>
 </body>
 </html>

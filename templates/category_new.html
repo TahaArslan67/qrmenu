@@ -14,6 +14,7 @@
         <div class="menu-section">
             <a href="/" class="back-button">← Kategorilere Dön</a>
             <h2 class="category-title"><!-- CATEGORY_NAME --></h2>
+            <input type="text" id="item-search" class="search-input" placeholder="Ürün ara..." autocomplete="off">
             
             <div class="two-column-layout">
                 <!-- Ürünler Sütunu (Sol taraf) -->
@@ -31,5 +32,14 @@
         </div>
         <div class="menu-footer">Afiyet olsun!</div>
     </div>
+    <script>
+      document.getElementById('item-search').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase().trim();
+        document.querySelectorAll('.menu-item-row').forEach(function(row) {
+          const name = row.querySelector('.menu-item-name').textContent.toLowerCase();
+          row.style.display = name.includes(term) ? '' : 'none';
+        });
+      });
+    </script>
 </body>
 </html>

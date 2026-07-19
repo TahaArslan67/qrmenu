@@ -12,11 +12,22 @@
     <div class="menu-container">
         <div class="menu-header">Gözde Pide Menü</div>
         <div class="menu-section">
+            <input type="text" id="category-search" class="search-input" placeholder="Kategori ara..." autocomplete="off">
+            <!-- FEATURED_ITEMS -->
             <div class="category-grid">
                 <!-- CATEGORIES_GRID -->
             </div>
         </div>
         <div class="menu-footer">Afiyet olsun!</div>
     </div>
+    <script>
+      document.getElementById('category-search').addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase().trim();
+        document.querySelectorAll('.category-card').forEach(function(card) {
+          const name = card.querySelector('.category-name').textContent.toLowerCase();
+          card.style.display = name.includes(term) ? '' : 'none';
+        });
+      });
+    </script>
 </body>
 </html>
