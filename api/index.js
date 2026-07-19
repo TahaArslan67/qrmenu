@@ -181,7 +181,8 @@ async function renderIndex() {
       categories.forEach(category => {
         // Türkçe karakterleri İngilizce'ye çeviren fonksiyon kullanılsın
         const categoryNameAscii = toAscii(category.name);
-        const categoryImgPath = `/static/category_images/${categoryNameAscii}.jpg`;
+        const defaultCategoryImgPath = `/static/category_images/${categoryNameAscii}.jpg`;
+        const categoryImgPath = category.img_url || defaultCategoryImgPath;
         
         categoriesGridHtml += `
           <a href="/category/${category._id}" class="category-card">
@@ -203,10 +204,6 @@ async function renderIndex() {
       if (featuredItems.length > 0) {
         featuredHtml = `<div class="featured-section"><h2 class="featured-title">Öne Çıkanlar</h2><ul class="menu-list">`;
         featuredItems.forEach(item => {
-          if (!item.img_url) {
-            const imgBase = item.name.toLowerCase().replace(/ /g, '_');
-            item.img_url = `/static/uploads/${imgBase}.jpg`;
-          }
           featuredHtml += `
             <li class="menu-item-row">
               <div class="menu-item-info">
@@ -214,7 +211,6 @@ async function renderIndex() {
                 ${item.description ? `<div class="menu-item-desc">${item.description}</div>` : ''}
               </div>
               <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
-              <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
             </li>
           `;
         });
@@ -283,14 +279,6 @@ async function renderCategory(categoryId) {
       console.log(`${index+1}. Ürün: ${item.name}, Fiyat: ${item.price}, Kategori: ${item.category_id}, Açıklama: ${item.description ? item.description : 'Açıklama yok'}`);
     });
     
-    // Ürünlere resim URL'si ekle (yoksa isim bazlı)
-    items.forEach(item => {
-      if (!item.img_url) {
-        const imgBase = item.name.toLowerCase().replace(/ /g, '_');
-        item.img_url = `/static/uploads/${imgBase}.jpg`;
-      }
-    });
-    
     // HTML şablonunu oku
     let html = categoryTemplate;
     
@@ -309,7 +297,6 @@ async function renderCategory(categoryId) {
               ${item.description ? `<div class="menu-item-desc">${item.description}</div>` : ''}
             </div>
             <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
-            <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
           </li>
         `;
       });
@@ -374,14 +361,6 @@ async function renderMenu() {
     // Kategorileri sırala
     categories.sort((a, b) => (Number(a.category_num) || 0) - (Number(b.category_num) || 0));
     
-    // Ürünlere resim URL'si ekle
-    items.forEach(item => {
-      if (!item.img_url) {
-        const imgBase = item.name.toLowerCase().replace(/ /g, '_');
-        item.img_url = `/static/uploads/${imgBase}.jpg`;
-      }
-    });
-    
     // HTML şablonunu oku
     let html = menuTemplate;
     
@@ -426,7 +405,6 @@ async function renderMenu() {
                   <span class="menu-item-name">${item.name}</span>
                 </div>
                 <span class="menu-item-price">${parseFloat(item.price).toFixed(0)} ₺</span>
-                <img src="${item.img_url}" class="menu-img-thumb" alt="${item.name}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
               </li>
             `;
           });
@@ -609,13 +587,13 @@ async function renderAdmin(sessionId) {
       description: i.description || '',
       price: i.price,
       category_id: i.category_id,
-      img_url: i.img_url || '',
       is_featured: !!i.is_featured
     }));
     const adminCategoriesData = categories.map(c => ({
       _id: c._id ? c._id.toString() : c._id,
       name: c.name,
-      category_num: c.category_num
+      category_num: c.category_num,
+      img_url: c.img_url || ''
     }));
     html = html.replace('<!-- ADMIN_ITEMS_DATA -->', `<script>window.adminItems = ${JSON.stringify(adminItemsData)}; window.adminCategories = ${JSON.stringify(adminCategoriesData)};</script>`);
     
@@ -697,7 +675,7 @@ async function handleAddItem(body, sessionId) {
   console.log('Ürün ekleme verileri:', body);
   
   // Form verilerini kontrol et
-  let name, description, price, category_id, img_url, is_featured;
+  let name, description, price, category_id, is_featured;
   
   if (typeof body === 'string') {
     // URL kodlu form verisi
@@ -706,7 +684,6 @@ async function handleAddItem(body, sessionId) {
     description = params.description;
     price = params.price;
     category_id = params.category_id;
-    img_url = params.img_url || '';
     is_featured = params.is_featured === '1' || params.is_featured === 'on' || params.is_featured === true;
   } else {
     // Veri zaten ayrıştırılmış nesne olarak gelmiş
@@ -714,7 +691,6 @@ async function handleAddItem(body, sessionId) {
     description = body.description;
     price = body.price;
     category_id = body.category_id;
-    img_url = body.img_url || '';
     is_featured = body.is_featured === true || body.is_featured === '1' || body.is_featured === 'on';
   }
   
@@ -772,7 +748,6 @@ async function handleAddItem(body, sessionId) {
       description: description || '',
       price: parseFloat(price),
       category_id: categoryNum,
-      img_url: img_url || '',
       is_featured: !!is_featured
     });
     
@@ -815,17 +790,19 @@ async function handleAddCategory(body, sessionId) {
   console.log('Kategori ekleme verileri:', body);
   
   // Form verilerini kontrol et
-  let name, category_num;
+  let name, category_num, img_url;
   
   if (typeof body === 'string') {
     // URL kodlu form verisi
     const params = querystring.parse(body);
     name = params.name;
     category_num = parseInt(params.category_num) || 0;
+    img_url = params.img_url || '';
   } else {
     // Veri zaten ayrıştırılmış nesne olarak gelmiş
     name = body.name;
     category_num = parseInt(body.category_num) || 0;
+    img_url = body.img_url || '';
   }
   
   console.log('Kategori adı:', name, 'Sıra:', category_num);
@@ -845,7 +822,8 @@ async function handleAddCategory(body, sessionId) {
     
     const result = await db.collection('categories').insertOne({
       name,
-      category_num
+      category_num,
+      img_url: img_url || ''
     });
     
     return {
@@ -954,17 +932,19 @@ async function handleEditCategory(body, sessionId) {
   console.log('Kategori düzenleme onaylandı');
   console.log('Kategori düzenleme verileri:', body);
   
-  let categoryId, name, category_num;
+  let categoryId, name, category_num, img_url;
   
   if (typeof body === 'string') {
     const params = querystring.parse(body);
     categoryId = params.category_id;
     name = params.name;
     category_num = parseInt(params.category_num) || 0;
+    img_url = params.img_url || '';
   } else {
     categoryId = body.category_id;
     name = body.name;
     category_num = parseInt(body.category_num) || 0;
+    img_url = body.img_url || '';
   }
   
   if (!categoryId || !name) {
@@ -987,7 +967,7 @@ async function handleEditCategory(body, sessionId) {
     
     const result = await db.collection('categories').updateOne(
       { _id: objCategoryId },
-      { $set: { name, category_num } }
+      { $set: { name, category_num, img_url: img_url || '' } }
     );
     
     if (result.modifiedCount === 0) {
@@ -1117,7 +1097,6 @@ async function handleEditItem(body, sessionId) {
     const description = body.description || '';
     const price = parseFloat(body.price);
     const categoryId = body.category_id;
-    const img_url = body.img_url || '';
     const is_featured = body.is_featured === true || body.is_featured === '1' || body.is_featured === 'on';
     
     // Veri kontrolü
@@ -1182,7 +1161,6 @@ async function handleEditItem(body, sessionId) {
           description: description,
           price: price,
           category_id: categoryIdNum,  // Sayısal kategori ID'yi kullan
-          img_url: img_url,
           is_featured: !!is_featured
         }
       }
@@ -1269,7 +1247,7 @@ async function applyAiOperation(db, op) {
   switch (op.action) {
     case 'add_category': {
       if (!op.data || !op.data.name) throw new Error('Eksik kategori adı');
-      await db.collection('categories').insertOne({ name: op.data.name, category_num: op.data.category_num || 0 });
+      await db.collection('categories').insertOne({ name: op.data.name, category_num: op.data.category_num || 0, img_url: op.data.img_url || '' });
       break;
     }
     case 'update_category': {
@@ -1279,6 +1257,7 @@ async function applyAiOperation(db, op) {
       const set = {};
       if (op.data.name !== undefined) set.name = op.data.name;
       if (op.data.category_num !== undefined) set.category_num = op.data.category_num;
+      if (op.data.img_url !== undefined) set.img_url = op.data.img_url;
       await db.collection('categories').updateOne({ _id: cat._id }, { $set: set });
       break;
     }
@@ -1301,7 +1280,6 @@ async function applyAiOperation(db, op) {
         description: op.data.description || '',
         price: parseFloat(op.data.price) || 0,
         category_id: categoryNum,
-        img_url: op.data.img_url || '',
         is_featured: !!op.data.is_featured
       });
       break;
@@ -1314,7 +1292,6 @@ async function applyAiOperation(db, op) {
       if (op.data.name !== undefined) set.name = op.data.name;
       if (op.data.price !== undefined) set.price = parseFloat(op.data.price) || 0;
       if (op.data.description !== undefined) set.description = op.data.description;
-      if (op.data.img_url !== undefined) set.img_url = op.data.img_url;
       if (op.data.is_featured !== undefined) set.is_featured = !!op.data.is_featured;
       if (op.data.category_name) {
         const cat = await db.collection('categories').findOne({ name: op.data.category_name });
@@ -1346,14 +1323,14 @@ async function handleAiUpdate(prompt, imageData, sessionId) {
     const categories = await db.collection('categories').find({}).toArray();
     const items = await db.collection('items').find({}).toArray();
     const currentMenu = categories.map(c => {
-      const catItems = items.filter(i => Number(i.category_id) === Number(c.category_num)).map(i => ({ name: i.name, price: i.price, description: i.description, is_featured: i.is_featured, img_url: i.img_url }));
-      return { name: c.name, category_num: c.category_num, items: catItems };
+      const catItems = items.filter(i => Number(i.category_id) === Number(c.category_num)).map(i => ({ name: i.name, price: i.price, description: i.description, is_featured: i.is_featured }));
+      return { name: c.name, category_num: c.category_num, img_url: c.img_url || '', items: catItems };
     });
-    const systemPrompt = `You are a restaurant menu manager for "Gözde Pide". Current menu is provided as JSON. The user gives a request in Turkish and/or a menu photo. Return ONLY a JSON object with key "operations" (array). Each operation: { action: "add_category" | "update_category" | "delete_category" | "add_item" | "update_item" | "delete_item", target_name?: string, data?: object }. Category data: name, category_num. Item data: name, price (number), description, category_name, is_featured (boolean), img_url. For update/delete, target_name is the current name. Do not output markdown.`;
+    const systemPrompt = `You are a restaurant menu manager for "Gözde Pide". Current menu is provided as JSON. The user gives a request in Turkish and/or a menu photo. Return ONLY a JSON object with key "operations" (array). Each operation: { action: "add_category" | "update_category" | "delete_category" | "add_item" | "update_item" | "delete_item", target_name?: string, data?: object }. Category data: name, category_num, img_url (string). Item data: name, price (number), description, category_name, is_featured (boolean). For update/delete, target_name is the current name. Do not output markdown.`;
     const messages = [{ role: 'system', content: systemPrompt }, { role: 'user', content: [] }];
     const userContent = [];
-    let userText = 'Mevcut menü: ' + JSON.stringify(currentMenu);
-    if (prompt) userText += '\\n\\nKullanıcı isteği: ' + prompt;
+    const requestText = prompt || 'Fotoğraftaki menüyü okuyarak mevcut menüyü güncelle.';
+    const userText = 'Mevcut menü: ' + JSON.stringify(currentMenu) + '\\n\\nKullanıcı isteği: ' + requestText;
     userContent.push({ type: 'text', text: userText });
     if (imageData) userContent.push({ type: 'image_url', image_url: { url: imageData } });
     messages[1].content = userContent;

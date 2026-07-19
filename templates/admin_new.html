@@ -41,6 +41,7 @@
             <input type="hidden" name="category_id" id="category-id">
             <input type="text" name="name" placeholder="Kategori adı" required id="category-name">
             <input type="number" name="category_num" placeholder="Sıra numarası" required value="0" id="category-num">
+            <input type="url" name="img_url" placeholder="Kategori görsel URL (opsiyonel)" id="category-img-url">
             <button type="submit" id="category-submit-btn">Kategori Ekle</button>
             <button type="button" id="cancel-category-edit" style="background-color: #f44336; display: none;">İptal</button>
         </form>
@@ -64,7 +65,6 @@
             <input type="text" name="name" placeholder="Ürün adı" required id="item-name">
             <textarea name="description" placeholder="Açıklama" id="item-description"></textarea>
             <input type="number" name="price" placeholder="Fiyat" step="0.01" required id="item-price">
-            <input type="url" name="img_url" placeholder="Görsel URL (opsiyonel)" id="item-img-url">
             <label style="display:flex;align-items:center;gap:6px;margin:8px 0;cursor:pointer;">
               <input type="checkbox" name="is_featured" value="1" id="item-is-featured">
               <span>Öne çıkan ürün olarak işaretle</span>
@@ -113,9 +113,11 @@
 
         // Kategori düzenleme işlevi
         function editCategory(categoryId, name, categoryNum) {
+            const cat = (window.adminCategories || []).find(c => c._id === categoryId);
             document.getElementById('category-id').value = categoryId;
             document.getElementById('category-name').value = name || '';
             document.getElementById('category-num').value = categoryNum || 0;
+            document.getElementById('category-img-url').value = cat && cat.img_url ? cat.img_url : '';
             document.getElementById('category-form-title').textContent = 'Kategori Düzenle';
             document.getElementById('category-submit-btn').textContent = 'Kategoriyi Güncelle';
             document.getElementById('category-form').action = '/edit_category';
@@ -143,7 +145,6 @@
             document.getElementById('item-name').value = item.name;
             document.getElementById('item-description').value = item.description || '';
             document.getElementById('item-price').value = item.price;
-            document.getElementById('item-img-url').value = item.img_url || '';
             document.getElementById('item-is-featured').checked = !!item.is_featured;
             
             const cat = categories.find(c => c.category_num == item.category_id || c._id === item.category_id);
