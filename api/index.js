@@ -513,10 +513,11 @@ async function renderAdmin(sessionId) {
     // Kategori listesini oluştur
     let categoryListHtml = '';
     categories.forEach(category => {
+      const catNum = Number(category.category_num) || 0;
       categoryListHtml += `
         <tr>
           <td>${category.name}</td>
-          <td><a href="/delete_category/${category._id}" class="delete-btn">Sil</a></td>
+          <td><a href="#" class="edit-btn" onclick="editCategory('${category._id}', '${category.name.replace(/'/g, "\\'")}', ${catNum})">Düzenle</a> <a href="/delete_category/${category._id}" class="delete-btn">Sil</a></td>
         </tr>
       `;
     });
@@ -937,6 +938,80 @@ async function handleDeleteItem(itemId, sessionId) {
   }
 }
 
+// Kategori düzenleme
+async function handleEditCategory(body, sessionId) {
+  // Oturum kontrolü
+  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+    console.log('Kategori düzenleme reddedildi - oturum yok veya geçersiz');
+    return {
+      statusCode: 302,
+      headers: { 'Location': '/login' },
+      body: 'Redirecting to login...'
+    };
+  }
+  
+  console.log('Kategori düzenleme onaylandı');
+  console.log('Kategori düzenleme verileri:', body);
+  
+  let categoryId, name, category_num;
+  
+  if (typeof body === 'string') {
+    const params = querystring.parse(body);
+    categoryId = params.category_id;
+    name = params.name;
+    category_num = parseInt(params.category_num) || 0;
+  } else {
+    categoryId = body.category_id;
+    name = body.name;
+    category_num = parseInt(body.category_num) || 0;
+  }
+  
+  if (!categoryId || !name) {
+    return {
+      statusCode: 400,
+      body: 'Hata: Kategori ID ve adı gereklidir.',
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    };
+  }
+  
+  try {
+    const db = await connectToDatabase();
+    
+    let objCategoryId;
+    if (!useLocalData) {
+      objCategoryId = new ObjectId(categoryId);
+    } else {
+      objCategoryId = categoryId;
+    }
+    
+    const result = await db.collection('categories').updateOne(
+      { _id: objCategoryId },
+      { $set: { name, category_num } }
+    );
+    
+    if (result.modifiedCount === 0) {
+      return {
+        statusCode: 404,
+        body: 'Hata: Kategori bulunamadı veya güncellenemedi.',
+        headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      };
+    }
+    
+    return {
+      statusCode: 302,
+      headers: { 'Location': '/admin' },
+      body: 'Redirecting to admin...'
+    };
+  } catch (error) {
+    console.error('Kategori düzenleme hatası:', error);
+    return {
+      statusCode: 500,
+      body: `Hata: ${error.message}`,
+      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+    };
+  }
+}
+
 // Kategori silme
 async function handleDeleteCategory(categoryId, sessionId) {
   // Oturum kontrolü
@@ -1334,6 +1409,29 @@ module.exports = async (req, res) => {
     }
     
     return res.status(result.statusCode).end(result.body);
+  }
+  
+  // Kategori düzenleme
+  if (url === '/edit_category' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+    
+    req.on('end', async () => {
+      const formData = querystring.parse(body);
+      const result = await handleEditCategory(formData, sessionId);
+      
+      if (result.headers && result.headers['Location']) {
+        return res.writeHead(302, {
+          'Location': result.headers['Location']
+        }).end(result.body);
+      }
+      
+      return res.status(result.statusCode).end(result.body);
+    });
+    
+    return;
   }
   
   // Ürün düzenleme

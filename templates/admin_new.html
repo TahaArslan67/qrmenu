@@ -28,11 +28,13 @@
     <div class="container">
         <h1>Gözde Pide Menü Yönetici Paneli <a href="/logout" class="logout">Çıkış Yap</a></h1>
         
-        <h2>Kategori Ekle</h2>
-        <form method="post" action="/add_category">
-            <input type="text" name="name" placeholder="Kategori adı" required>
-            <input type="number" name="category_num" placeholder="Sıra numarası" required value="0">
-            <button type="submit">Kategori Ekle</button>
+        <h2 id="category-form-title">Kategori Ekle</h2>
+        <form method="post" action="/add_category" id="category-form">
+            <input type="hidden" name="category_id" id="category-id">
+            <input type="text" name="name" placeholder="Kategori adı" required id="category-name">
+            <input type="number" name="category_num" placeholder="Sıra numarası" required value="0" id="category-num">
+            <button type="submit" id="category-submit-btn">Kategori Ekle</button>
+            <button type="button" id="cancel-category-edit" style="background-color: #f44336; display: none;">İptal</button>
         </form>
         
         <h2>Kategoriler</h2>
@@ -98,6 +100,27 @@
                 alert('Lütfen bir kategori seçin!');
                 return false;
             }
+        });
+
+        // Kategori düzenleme işlevi
+        function editCategory(categoryId, name, categoryNum) {
+            document.getElementById('category-id').value = categoryId;
+            document.getElementById('category-name').value = name || '';
+            document.getElementById('category-num').value = categoryNum || 0;
+            document.getElementById('category-form-title').textContent = 'Kategori Düzenle';
+            document.getElementById('category-submit-btn').textContent = 'Kategoriyi Güncelle';
+            document.getElementById('category-form').action = '/edit_category';
+            document.getElementById('cancel-category-edit').style.display = 'inline-block';
+            document.getElementById('category-form').scrollIntoView({behavior: 'smooth'});
+        }
+
+        document.getElementById('cancel-category-edit').addEventListener('click', function() {
+            document.getElementById('category-form').reset();
+            document.getElementById('category-id').value = '';
+            document.getElementById('category-form-title').textContent = 'Kategori Ekle';
+            document.getElementById('category-submit-btn').textContent = 'Kategori Ekle';
+            document.getElementById('category-form').action = '/add_category';
+            document.getElementById('cancel-category-edit').style.display = 'none';
         });
 
         // Düzenleme işlevi
