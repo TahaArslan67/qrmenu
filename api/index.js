@@ -565,12 +565,12 @@ async function renderAdmin(sessionId) {
       }
       
       itemsHtml += `
-        <tr>
+        <tr data-category="${categoryName.replace(/"/g, '&quot;')}" data-name="${item.name.replace(/"/g, '&quot;')}">
           <td>${item.name} ${item.is_featured ? '⭐' : ''}</td>
           <td>${categoryName}</td>
           <td>${parseFloat(item.price).toFixed(0)} ₺</td>
           <td>
-            <a href="#" class="edit-btn" onclick="editItem('${item._id}', '${item.name.replace(/'/g, "\\'")}', '${(item.description || '').replace(/'/g, "\\'")}', ${parseFloat(item.price).toFixed(0)}, '${item.category_id}')">Düzenle</a>
+            <a href="#" class="edit-btn" onclick="editItem('${item._id}')">Düzenle</a>
             <a href="/delete_item/${item._id}" class="delete-btn">Sil</a>
           </td>
         </tr>

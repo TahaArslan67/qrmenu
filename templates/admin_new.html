@@ -78,6 +78,7 @@
         </form>
         
         <h2>Ürünler</h2>
+        <div id="category-filter" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;"></div>
         <input type="text" id="product-search" class="search-input" placeholder="Ürün ara..." autocomplete="off">
         <table id="items-table">
             <thead>
@@ -170,15 +171,58 @@
             document.getElementById('item-form').action = '/add_item';
             document.getElementById('cancel-edit').style.display = 'none';
         });
-        // Ürün arama
-        document.getElementById('product-search').addEventListener('input', function(e) {
-            const term = e.target.value.toLowerCase().trim();
-            document.querySelectorAll('#items-table tbody tr').forEach(function(row) {
-                const nameCell = row.querySelector('td');
-                const name = nameCell ? nameCell.textContent.toLowerCase() : '';
-                row.style.display = name.includes(term) ? '' : 'none';
+        // Kategori filtreleme
+        function renderCategoryFilters() {
+            const container = document.getElementById('category-filter');
+            const categories = window.adminCategories || [];
+            if (categories.length === 0) return;
+            
+            const allBtn = document.createElement('button');
+            allBtn.textContent = 'Tümü';
+            allBtn.type = 'button';
+            allBtn.style.cssText = 'background:#e53935;color:#fff;border:none;padding:6px 12px;border-radius:4px;cursor:pointer;';
+            allBtn.dataset.category = '';
+            allBtn.addEventListener('click', function() { setCategoryFilter(''); });
+            container.appendChild(allBtn);
+            
+            categories.forEach(function(cat) {
+                const btn = document.createElement('button');
+                btn.textContent = cat.name;
+                btn.type = 'button';
+                btn.style.cssText = 'background:#fff;color:#333;border:1px solid #ddd;padding:6px 12px;border-radius:4px;cursor:pointer;';
+                btn.dataset.category = cat.name;
+                btn.addEventListener('click', function() { setCategoryFilter(cat.name); });
+                container.appendChild(btn);
             });
-        });
+        }
+        
+        let activeCategory = '';
+        function setCategoryFilter(category) {
+            activeCategory = category;
+            document.querySelectorAll('#category-filter button').forEach(function(btn) {
+                const isActive = (btn.dataset.category === category || (category === '' && btn.dataset.category === ''));
+                btn.style.backgroundColor = isActive ? '#e53935' : '#fff';
+                btn.style.color = isActive ? '#fff' : '#333';
+                btn.style.border = isActive ? 'none' : '1px solid #ddd';
+            });
+            applyFilters();
+        }
+        
+        function applyFilters() {
+            const term = document.getElementById('product-search').value.toLowerCase().trim();
+            document.querySelectorAll('#items-table tbody tr').forEach(function(row) {
+                const category = row.getAttribute('data-category') || '';
+                const name = (row.getAttribute('data-name') || '').toLowerCase();
+                const matchesCategory = !activeCategory || category === activeCategory;
+                const matchesName = !term || name.includes(term);
+                row.style.display = (matchesCategory && matchesName) ? '' : 'none';
+            });
+        }
+        
+        renderCategoryFilters();
+        
+        // Ürün arama
+        document.getElementById('product-search').addEventListener('input', applyFilters);
 
         // AI güncelleme
         document.getElementById('ai-submit').addEventListener('click', async function() {
