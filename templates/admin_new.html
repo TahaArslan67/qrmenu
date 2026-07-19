@@ -191,6 +191,7 @@
                 try {
                     const res = await fetch('/ai_update', {
                         method: 'POST',
+                        credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ prompt, image_data: imageData || '' })
                     });
