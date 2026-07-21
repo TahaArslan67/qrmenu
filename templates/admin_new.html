@@ -32,9 +32,15 @@
         <form id="ai-form">
             <textarea id="ai-prompt" placeholder="Örn: Adana Kebabın fiyatını 300 yap, yeni bir Tatlılar kategorisi ekle..." rows="4" style="width:100%;"></textarea>
             <input type="file" id="ai-image" accept="image/*" style="margin:10px 0;">
-            <button type="button" id="ai-submit" style="background:#2196F3;">AI ile Güncelle</button>
+            <button type="button" id="ai-submit" style="background:#2196F3;">AI ile Önizle</button>
         </form>
         <div id="ai-result" style="margin:10px 0;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;display:none;"></div>
+        <div id="ai-preview" style="margin:10px 0;padding:10px;background:#fff;border:1px solid #ddd;border-radius:4px;display:none;">
+            <h3>AI Önerileri</h3>
+            <ul id="ai-preview-list" style="list-style:none;padding-left:0;"></ul>
+            <button type="button" id="ai-confirm" style="background:#4caf50;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin-right:8px;">Onayla ve Uygula</button>
+            <button type="button" id="ai-cancel" style="background:#f44336;color:#fff;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;">İptal</button>
+        </div>
         
         <h2 id="category-form-title">Kategori Ekle</h2>
         <form method="post" action="/add_category" id="category-form">
@@ -225,14 +231,50 @@
         document.getElementById('product-search').addEventListener('input', applyFilters);
 
         // AI güncelleme
+        let aiOperations = [];
+        const aiPreview = document.getElementById('ai-preview');
+        const aiPreviewList = document.getElementById('ai-preview-list');
+        const aiResult = document.getElementById('ai-result');
+
+        function formatOp(op) {
+            const target = op.target_name || '';
+            const info = op.data ? JSON.stringify(op.data).slice(0, 120) : '';
+            return op.action + (target ? ' (' + target + ')' : '') + (info ? ': ' + info : '');
+        }
+
+        function showPreview(operations) {
+            aiOperations = operations || [];
+            aiPreviewList.innerHTML = '';
+            if (aiOperations.length === 0) {
+                aiPreviewList.innerHTML = '<li>AI herhangi bir işlem önermedi.</li>';
+            } else {
+                aiOperations.forEach(function(op) {
+                    const li = document.createElement('li');
+                    li.textContent = formatOp(op);
+                    li.style.padding = '4px 0';
+                    li.style.borderBottom = '1px solid #eee';
+                    aiPreviewList.appendChild(li);
+                });
+            }
+            aiPreview.style.display = 'block';
+        }
+
+        function clearPreview() {
+            aiOperations = [];
+            aiPreview.style.display = 'none';
+            aiPreviewList.innerHTML = '';
+            aiResult.style.display = 'none';
+            aiResult.textContent = '';
+        }
+
         document.getElementById('ai-submit').addEventListener('click', async function() {
             const prompt = document.getElementById('ai-prompt').value;
             const fileInput = document.getElementById('ai-image');
-            const resultDiv = document.getElementById('ai-result');
-            resultDiv.style.display = 'block';
-            resultDiv.textContent = 'İşleniyor...';
+            aiResult.style.display = 'block';
+            aiResult.textContent = 'AI analiz ediyor...';
+            aiPreview.style.display = 'none';
 
-            const sendUpdate = async function(imageData) {
+            const doPreview = async function(imageData) {
                 try {
                     const res = await fetch('/ai_update', {
                         method: 'POST',
@@ -245,22 +287,50 @@
                         return;
                     }
                     const data = await res.json();
-                    resultDiv.textContent = data.message || (data.success ? 'Tamamlandı' : 'Hata oluştu');
+                    aiResult.textContent = data.success ? 'Önizleme hazır. Değişiklikleri kontrol edip onaylayın.' : (data.message || 'Hata oluştu');
                     if (data.success) {
-                        setTimeout(function() { window.location.reload(); }, 1200);
+                        showPreview(data.operations);
                     }
                 } catch (err) {
-                    resultDiv.textContent = 'Hata: ' + err.message;
+                    aiResult.textContent = 'Hata: ' + err.message;
                 }
             };
 
             if (fileInput.files && fileInput.files[0]) {
                 const reader = new FileReader();
-                reader.onload = function(e) { sendUpdate(e.target.result); };
+                reader.onload = function(e) { doPreview(e.target.result); };
                 reader.readAsDataURL(fileInput.files[0]);
             } else {
-                await sendUpdate('');
+                await doPreview('');
             }
+        });
+
+        document.getElementById('ai-confirm').addEventListener('click', async function() {
+            if (!aiOperations.length) return;
+            aiResult.textContent = 'Uygulanıyor...';
+            try {
+                const res = await fetch('/ai_apply', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ operations: aiOperations })
+                });
+                if (res.status === 401) {
+                    window.location.href = '/login';
+                    return;
+                }
+                const data = await res.json();
+                aiResult.textContent = data.message || (data.success ? 'Tamamlandı' : 'Hata oluştu');
+                if (data.success) {
+                    setTimeout(function() { window.location.reload(); }, 1200);
+                }
+            } catch (err) {
+                aiResult.textContent = 'Hata: ' + err.message;
+            }
+        });
+
+        document.getElementById('ai-cancel').addEventListener('click', function() {
+            clearPreview();
         });
     </script>
     <!-- ADMIN_ITEMS_DATA -->

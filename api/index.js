@@ -1294,8 +1294,8 @@ async function applyAiOperation(db, op) {
   }
 }
 
-// AI ile menü güncelleme
-async function handleAiUpdate(prompt, imageData, sessionId) {
+// AI ile menü güncelleme önizleme
+async function handleAiPreview(prompt, imageData, sessionId) {
   if (!isAdmin(sessionId)) {
     return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Yetkisiz erişim' }) };
   }
@@ -1323,6 +1323,23 @@ async function handleAiUpdate(prompt, imageData, sessionId) {
     const cleaned = resultText.replace(/^```json\\s*/, '').replace(/```\\s*$/, '').trim();
     const parsed = JSON.parse(cleaned);
     const operations = parsed.operations || [];
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, operations }) };
+  } catch (error) {
+    console.error('AI önizleme hatası:', error);
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Hata: ' + error.message }) };
+  }
+}
+
+// AI ile onaylanan menü güncellemesini uygulama
+async function handleAiApply(operations, sessionId) {
+  if (!isAdmin(sessionId)) {
+    return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Yetkisiz erişim' }) };
+  }
+  if (!Array.isArray(operations)) {
+    return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Geçersiz işlem listesi' }) };
+  }
+  try {
+    const db = await connectToDatabase();
     const operationResults = [];
     for (const op of operations) {
       try {
@@ -1334,7 +1351,7 @@ async function handleAiUpdate(prompt, imageData, sessionId) {
     }
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: true, message: 'AI güncellemesi tamamlandı: ' + operationResults.join(', ') }) };
   } catch (error) {
-    console.error('AI güncelleme hatası:', error);
+    console.error('AI uygulama hatası:', error);
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Hata: ' + error.message }) };
   }
 }
@@ -1570,20 +1587,40 @@ module.exports = async (req, res) => {
     return;
   }
   
-  // AI menü güncelleme
+  // AI menü güncelleme önizleme
   if (url === '/ai_update' && method === 'POST') {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
     req.on('end', async () => {
       try {
         const json = body ? JSON.parse(body) : {};
-        const result = await handleAiUpdate(json.prompt || '', json.image_data || '', sessionId);
+        const result = await handleAiPreview(json.prompt || '', json.image_data || '', sessionId);
         if (result.headers) {
           Object.entries(result.headers).forEach(([key, value]) => res.setHeader(key, value));
         }
         return res.status(result.statusCode).end(result.body);
       } catch (error) {
         console.error('AI endpoint hatası:', error);
+        return res.status(500).end(JSON.stringify({ success: false, message: 'Hata: ' + error.message }));
+      }
+    });
+    return;
+  }
+
+  // AI menü güncellemeyi onayla uygulama
+  if (url === '/ai_apply' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const json = body ? JSON.parse(body) : {};
+        const result = await handleAiApply(json.operations || [], sessionId);
+        if (result.headers) {
+          Object.entries(result.headers).forEach(([key, value]) => res.setHeader(key, value));
+        }
+        return res.status(result.statusCode).end(result.body);
+      } catch (error) {
+        console.error('AI apply endpoint hatası:', error);
         return res.status(500).end(JSON.stringify({ success: false, message: 'Hata: ' + error.message }));
       }
     });
