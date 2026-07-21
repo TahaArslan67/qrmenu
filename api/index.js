@@ -1239,13 +1239,13 @@ async function handleReceiptScan(imageData) {
     const menuItems = items.map(item => ({ name: item.name, price: Number(item.price) || 0 }));
     const prompt = `Bu fotoğraf fiş değil; dükkânda masadaki siparişleri el yazısıyla aldığımız nottur. El yazısını, Türkçe kısaltmaları ve yanındaki adet işaretlerini yorumla. Her satırı menü kataloğundaki en uygun ürüne eşleştir. Eşleşme yoksa menu_name değerini null yap. Sadece JSON döndür: {"lines":[{"detected_name":"notta okunan ifade","menu_name":"katalogdaki tam ürün adı veya null","quantity":1,"confidence":0.0}]}. Toplam, masa numarası, garson adı ve notları ürün olarak ekleme. Menü kataloğu: ${JSON.stringify(menuItems)}`;
     const resultText = await callOpenAI({
-      model: 'gpt-4o-mini',
+      model: 'gpt-5-nano',
       messages: [
         { role: 'system', content: 'El yazılı restoran sipariş notlarını okuyan asistansın. Ürünleri yalnızca verilen menü kataloğundan seç. Sadece geçerli JSON döndür.' },
-        { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData, detail: 'high' } }] }
+        { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData, detail: 'low' } }] }
       ],
-      temperature: 0,
-      max_tokens: 800,
+      reasoning_effort: 'minimal',
+      max_completion_tokens: 600,
       response_format: { type: 'json_object' }
     });
     const responseString = String(resultText || '').trim();
