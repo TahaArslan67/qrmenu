@@ -525,37 +525,16 @@ async function renderAdmin(sessionId) {
         
         // 2. Sayısal ID (category_num) ile eşleşme
         if (!category) {
-          // Kategori ID'sini sayısal veya string olarak al
-          let numCategoryId = null;
-          
-          try {
-            // String veya sayı olabilir - sayısala çevirmeye çalış
-            numCategoryId = typeof item.category_id === 'number' ? 
-              item.category_id : 
-              parseInt(item.category_id);
-              
-            // Eğer sayısala çevrilemiyorsa ObjectId olabilir
-            if (isNaN(numCategoryId) && typeof item.category_id === 'string' && item.category_id.length === 24) {
-              try {
-                // ObjectId'yi string olarak karşılaştır
-                category = categories.find(c => c._id.toString() === item.category_id);
-              } catch (e) {
-                console.log(`ObjectId karşılaştırma hatası: ${e.message}`);
-              }
+          const itemCategoryNum = Number(item.category_id);
+          if (!isNaN(itemCategoryNum)) {
+            category = categories.find(c => Number(c.category_num) === itemCategoryNum);
+            if (category) console.log(`${item.name} ürünü için kategori sayısal ID ile eşleştirildi: ${itemCategoryNum}`);
+          } else if (typeof item.category_id === 'string' && item.category_id.length === 24) {
+            try {
+              category = categories.find(c => c._id.toString() === item.category_id);
+            } catch (e) {
+              console.log(`ObjectId karşılaştırma hatası: ${e.message}`);
             }
-            
-            // Sayısal kategori ID ile eşleştir (category_num alanı ile)
-            if (!category && !isNaN(numCategoryId)) {
-              category = categories.find(c => Number(c.category_num) === numCategoryId);
-              console.log(`${item.name} ürünü için kategori sayısal ID ile eşleştirildi: ${numCategoryId}`);
-            }
-          } catch (e) {
-            console.log(`Kategori ID dönüşüm hatası: ${e.message}`);
-          }
-          
-          // 3. Son çare - ID'yi içeren durumlar için (kısmi eşleşme)
-          if (!category && numCategoryId) {
-            category = categories.find(c => c._id.toString().includes(numCategoryId.toString()));
           }
         }
         
@@ -1113,14 +1092,17 @@ async function handleEditItem(body, sessionId) {
       const objCategoryId = new ObjectId(categoryId);
       const category = await db.collection('categories').findOne({ _id: objCategoryId });
       
-      if (category && category.category_num) {
+      if (category && typeof category.category_num !== 'undefined') {
         // Kategori bulundu, sayısal ID'sini kullan
         categoryIdNum = category.category_num;
         console.log(`Kategori bulundu: ${category.name}, sayısal ID: ${categoryIdNum}`);
       } else {
         // Kategori bulunamadı veya category_num yok, kategoriId'yi sayısal olarak çevirmeyi dene
         try {
-          categoryIdNum = parseInt(categoryId);
+          categoryIdNum = Number(categoryId);
+          if (isNaN(categoryIdNum)) {
+            return { statusCode: 400, body: 'Hata: Geçersiz kategori', headers: { 'Content-Type': 'text/html; charset=utf-8' } };
+          }
           console.log(`Kategori ID sayısal değere dönüştürüldü: ${categoryIdNum}`);
         } catch (e) {
           // Sayısal değere dönüştürülemiyorsa varsayılan 1 kullan
@@ -1131,7 +1113,10 @@ async function handleEditItem(body, sessionId) {
     } catch (e) {
       // ObjectId'ye dönüştürme hatası, sayısal dönüşümü dene
       try {
-        categoryIdNum = parseInt(categoryId);
+        categoryIdNum = Number(categoryId);
+          if (isNaN(categoryIdNum)) {
+            return { statusCode: 400, body: 'Hata: Geçersiz kategori', headers: { 'Content-Type': 'text/html; charset=utf-8' } };
+          }
         console.log(`Kategori ID doğrudan sayısal değere dönüştürüldü: ${categoryIdNum}`);
       } catch (e2) {
         // Hatada varsayılan kategori 1 kullan
