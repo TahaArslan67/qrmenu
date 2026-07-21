@@ -148,7 +148,7 @@
             document.getElementById('item-price').value = item.price;
             document.getElementById('item-is-featured').checked = !!item.is_featured;
             
-            const cat = categories.find(c => c.category_num == item.category_id || c._id === item.category_id);
+            const cat = categories.find(c => Number(String(c.category_num || '')) === Number(String(item.category_id || '')) || c._id === item.category_id);
             document.getElementById('category-select').value = cat ? cat._id : '';
             
             // Form başlığını ve buton metnini güncelle

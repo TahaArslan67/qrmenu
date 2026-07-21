@@ -525,9 +525,9 @@ async function renderAdmin(sessionId) {
         
         // 2. Sayısal ID (category_num) ile eşleşme
         if (!category) {
-          const itemCategoryNum = Number(item.category_id);
+          const itemCategoryNum = Number(String(item.category_id));
           if (!isNaN(itemCategoryNum)) {
-            category = categories.find(c => Number(c.category_num) === itemCategoryNum);
+            category = categories.find(c => Number(String(c.category_num)) === itemCategoryNum);
             if (category) console.log(`${item.name} ürünü için kategori sayısal ID ile eşleştirildi: ${itemCategoryNum}`);
           } else if (typeof item.category_id === 'string' && item.category_id.length === 24) {
             try {
