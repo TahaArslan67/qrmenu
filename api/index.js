@@ -512,8 +512,8 @@ async function renderAdmin(sessionId) {
     items.forEach(item => {
       let categoryName = 'Kategorisi yok';
       
-      // Kategori ID'sini güvenli bir şekilde kontrol et
-      if (item.category_id) {
+      // Kategori ID'sini güvenli bir şekilde kontrol et (0 geçerli bir değerdir)
+      if (item.category_id !== undefined && item.category_id !== null && item.category_id !== '') {
         // 1. Direk ObjectId eşleşmesi
         let category = categories.find(c => {
           try {
