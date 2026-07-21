@@ -1297,11 +1297,11 @@ function callOpenAITranscription(audioData) {
     const boundary = '----ReceiptScannerBoundary' + Date.now();
     const audioBuffer = Buffer.from(match[2], 'base64');
     const body = Buffer.concat([
-      Buffer.from(`--${boundary}\\r\\nContent-Disposition: form-data; name="model"\\r\\n\\r\\nwhisper-1\\r\\n`),
-      Buffer.from(`--${boundary}\\r\\nContent-Disposition: form-data; name="language"\\r\\n\\r\\ntr\\r\\n`),
-      Buffer.from(`--${boundary}\\r\\nContent-Disposition: form-data; name="file"; filename="order.m4a"\\r\\nContent-Type: audio/mp4\\r\\n\\r\\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\nwhisper-1\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="language"\r\n\r\ntr\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="order.m4a"\r\nContent-Type: audio/mp4\r\n\r\n`),
       audioBuffer,
-      Buffer.from(`\\r\\n--${boundary}--\\r\\n`)
+      Buffer.from(`\r\n--${boundary}--\r\n`)
     ]);
     const request = https.request({ hostname: 'api.openai.com', port: 443, path: '/v1/audio/transcriptions', method: 'POST', headers: { Authorization: 'Bearer ' + (process.env.OPENAI_API_KEY || ''), 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length } }, (response) => {
       let responseBody = '';
