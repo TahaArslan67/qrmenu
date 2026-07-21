@@ -1290,6 +1290,59 @@ async function handleReceiptScan(imageData) {
   }
 }
 
+function callOpenAITranscription(audioData) {
+  return new Promise((resolve, reject) => {
+    const match = String(audioData).match(/^data:([^;]+);base64,(.+)$/);
+    if (!match) return reject(new Error('Geçerli ses verisi gönderilmedi'));
+    const boundary = '----ReceiptScannerBoundary' + Date.now();
+    const audioBuffer = Buffer.from(match[2], 'base64');
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\\r\\nContent-Disposition: form-data; name="model"\\r\\n\\r\\nwhisper-1\\r\\n`),
+      Buffer.from(`--${boundary}\\r\\nContent-Disposition: form-data; name="language"\\r\\n\\r\\ntr\\r\\n`),
+      Buffer.from(`--${boundary}\\r\\nContent-Disposition: form-data; name="file"; filename="order.m4a"\\r\\nContent-Type: audio/mp4\\r\\n\\r\\n`),
+      audioBuffer,
+      Buffer.from(`\\r\\n--${boundary}--\\r\\n`)
+    ]);
+    const request = https.request({ hostname: 'api.openai.com', port: 443, path: '/v1/audio/transcriptions', method: 'POST', headers: { Authorization: 'Bearer ' + (process.env.OPENAI_API_KEY || ''), 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': body.length } }, (response) => {
+      let responseBody = '';
+      response.on('data', chunk => { responseBody += chunk; });
+      response.on('end', () => {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          try { resolve(JSON.parse(responseBody).text || ''); } catch (error) { reject(error); }
+        } else reject(new Error('Ses çözümleme hatası ' + response.statusCode + ': ' + responseBody));
+      });
+    });
+    request.on('error', reject);
+    request.write(body);
+    request.end();
+  });
+}
+
+async function handleVoiceScan(audioData) {
+  if (!process.env.OPENAI_API_KEY) return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'OPENAI_API_KEY ortam değişkeni tanımlanmamış' }) };
+  try {
+    const transcript = await callOpenAITranscription(audioData);
+    const db = await connectToDatabase();
+    const items = await db.collection('items').find({}).toArray();
+    const catalog = items.map(item => ({ id: String(item._id), name: item.name }));
+    const resultText = await callOpenAI({ model: 'gpt-4o-mini', messages: [{ role: 'system', content: 'Türkçe restoran siparişlerini katalogdaki ürün IDleriyle eşleştiren asistansın. Sadece katalogdaki IDleri kullan, ürün veya fiyat uydurma. JSON döndür.' }, { role: 'user', content: `Sipariş konuşması: ${transcript}\\nKatalog: ${JSON.stringify(catalog)}\\nFormat: {"lines":[{"menu_id":"id veya null","quantity":1}],"transcript":"..."}` }], temperature: 0, max_tokens: 600, response_format: { type: 'json_object' } });
+    const parsed = JSON.parse(String(resultText).slice(String(resultText).indexOf('{'), String(resultText).lastIndexOf('}') + 1));
+    const lines = Array.isArray(parsed.lines) ? parsed.lines : [];
+    const receiptLines = lines.map(line => {
+      const item = items.find(entry => String(entry._id) === String(line.menu_id));
+      const quantity = Math.min(20, Math.max(1, Number(line.quantity) || 1));
+      const price = item ? Number(item.price) || 0 : null;
+      return { detectedName: item ? String(item.name) : 'Eşleşmeyen sipariş', matchedName: item ? String(item.name) : null, price, quantity, lineTotal: price === null ? null : price * quantity, confidence: item ? 1 : 0 };
+    });
+    const total = receiptLines.reduce((sum, line) => sum + (line.lineTotal || 0), 0);
+    const warnings = receiptLines.filter(line => line.price === null).map(() => 'Konuşmadaki bir ürün menüde bulunamadı.');
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines: receiptLines, total, currency: '₺', warnings, transcript }) };
+  } catch (error) {
+    console.error('Sesli sipariş hatası:', error);
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Sesli sipariş analiz edilemedi: ' + error.message }) };
+  }
+}
+
 // AI işlemlerini veritabanına uygula
 async function applyAiOperation(db, op) {
   if (!op || !op.action) throw new Error('Geçersiz operasyon');
@@ -1687,6 +1740,24 @@ module.exports = async (req, res) => {
       } catch (error) {
         console.error('AI apply endpoint hatası:', error);
         return res.status(500).end(JSON.stringify({ success: false, message: 'Hata: ' + error.message }));
+      }
+    });
+    return;
+  }
+
+  // Mobil sesli sipariş endpoint'i
+  if (url === '/api/receipt/voice' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const json = body ? JSON.parse(body) : {};
+        const result = await handleVoiceScan(json.audio_data || '');
+        if (result.headers) Object.entries(result.headers).forEach(([key, value]) => res.setHeader(key, value));
+        return res.status(result.statusCode).end(result.body);
+      } catch (error) {
+        console.error('Sesli sipariş endpoint hatası:', error);
+        return res.status(500).end(JSON.stringify({ message: 'Hata: ' + error.message }));
       }
     });
     return;
