@@ -1237,7 +1237,20 @@ async function handleReceiptScan(imageData) {
     const db = await connectToDatabase();
     const items = await db.collection('items').find({}).toArray();
     const menuItems = items.map(item => ({ name: item.name, price: Number(item.price) || 0 }));
-    const prompt = `Bu fotoğraf fiş değil; dükkânda masadaki siparişleri çok kötü ve hızlı el yazısıyla aldığımız nottur. Yazı okunaksız olsa bile satırları tek tek çözmeye çalış. Harfleri menü kataloğuyla karşılaştırarak düzelt; Türkçe karakterleri ve yaygın kısaltmaları yorumla (örn. ayran: ayr, su, kebap: kb, adana: adn, kuşbaşı: kbş, lahmacun: lah, çorba: çrb). Aynı satırdaki 2, 3, 2x, çarpı işareti veya tekrar çizgisini adet olarak kabul et. Bir kelime bozuksa en yakın menü ürününü seç; yalnızca hiçbir makul eşleşme yoksa menu_name null olsun. Her okunabilir ürün için mutlaka satır döndür, eminlik düşükse confidence değerini düşür. Sadece JSON döndür: {"lines":[{"detected_name":"notta tahmin edilen ifade","menu_name":"katalogdaki tam ürün adı veya null","quantity":1,"confidence":0.0}]}. Toplam, masa numarası, garson adı, not ve iptal işaretlerini ürün olarak ekleme. Menü kataloğu: ${JSON.stringify(menuItems)}`;
+    const shorthandRules = {
+      'kuş': 'Kuşbaşı',
+      'kuşkaş': 'Kuşbaşı Kaşarlı',
+      'kola': 'Kutu Kola',
+      'cam': 'Şişe Kola',
+      'camkola': 'Şişe Kola',
+      'kıy': 'Kıymalı',
+      'kıykaş': 'Kıymalı Kaşarlı',
+      'kaş': 'Kaşarlı',
+      'lah': 'Lahmacun',
+      'l': 'Lahmacun',
+      'kıykaş yu': 'Kıymalı Kaşarlı Yumurtalı'
+    };
+    const prompt = `Bu fotoğraf fiş değil; dükkânda masadaki siparişleri çok kötü ve hızlı el yazısıyla aldığımız nottur. Yazı okunaksız olsa bile satırları tek tek çözmeye çalış. Harfleri menü kataloğuyla karşılaştırarak düzelt; Türkçe karakterleri ve aşağıdaki restoran kısaltmalarını tam olarak uygula: ${JSON.stringify(shorthandRules)}. Özellikle kuş=Kuşbaşı, kuşkaş=Kuşbaşı Kaşarlı, kola=Kutu Kola, cam veya camkola=Şişe Kola, kıy=Kıymalı, kıykaş=Kıymalı Kaşarlı, kaş=Kaşarlı, lah veya L=Lahmacun, kıykaş yu=Kıymalı Kaşarlı Yumurtalı. Bu sözlükteki eşleşmeleri yaklaşık tahminle değiştirme. Aynı satırdaki 2, 3, 2x, çarpı işareti veya tekrar çizgisini adet olarak kabul et. Bir kelime bozuksa en yakın menü ürününü seç; yalnızca hiçbir makul eşleşme yoksa menu_name null olsun. Her okunabilir ürün için mutlaka satır döndür, eminlik düşükse confidence değerini düşür. Sadece JSON döndür: {"lines":[{"detected_name":"notta tahmin edilen ifade","menu_name":"katalogdaki tam ürün adı veya null","quantity":1,"confidence":0.0}]}. Toplam, masa numarası, garson adı, not ve iptal işaretlerini ürün olarak ekleme. Menü kataloğu: ${JSON.stringify(menuItems)}`;
     const resultText = await callOpenAI({
       model: 'gpt-5-nano',
       messages: [
@@ -1255,10 +1268,13 @@ async function handleReceiptScan(imageData) {
     const parsed = JSON.parse(responseString.slice(jsonStart, jsonEnd + 1));
     const lines = Array.isArray(parsed.lines) ? parsed.lines : [];
     const normalized = (value) => String(value).toLocaleLowerCase('tr-TR').replace(/[ıİ]/g, 'i').replace(/[şŞ]/g, 's').replace(/[ğĞ]/g, 'g').replace(/[üÜ]/g, 'u').replace(/[öÖ]/g, 'o').replace(/[çÇ]/g, 'c').replace(/[^a-z0-9]/g, '');
+    const shorthandEntries = Object.entries(shorthandRules).map(([key, value]) => [normalized(key), value]);
     const receiptLines = lines.filter(line => line && typeof line === 'object').map(line => {
       const detectedName = String(line.detected_name || line.name || '').trim();
       const requestedMenuName = String(line.menu_name || '').trim();
-      const menuItem = items.find(item => requestedMenuName && normalized(item.name) === normalized(requestedMenuName)) || items.find(item => normalized(item.name) === normalized(detectedName)) || items.find(item => normalized(item.name).includes(normalized(detectedName)) || normalized(detectedName).includes(normalized(item.name)));
+      const shorthandMatch = shorthandEntries.find(([key]) => key === normalized(detectedName));
+      const resolvedName = shorthandMatch ? shorthandMatch[1] : requestedMenuName;
+      const menuItem = items.find(item => resolvedName && normalized(item.name) === normalized(resolvedName)) || items.find(item => resolvedName && (normalized(item.name).includes(normalized(resolvedName)) || normalized(resolvedName).includes(normalized(item.name)))) || items.find(item => requestedMenuName && normalized(item.name) === normalized(requestedMenuName)) || items.find(item => normalized(item.name) === normalized(detectedName)) || items.find(item => normalized(item.name).includes(normalized(detectedName)) || normalized(detectedName).includes(normalized(item.name)));
       const quantity = Math.max(1, Number(line.quantity) || 1);
       const price = menuItem ? Number(menuItem.price) || 0 : null;
       return { detectedName, matchedName: menuItem ? String(menuItem.name) : null, price, quantity, lineTotal: price === null ? null : price * quantity, confidence: menuItem ? 1 : 0 };
