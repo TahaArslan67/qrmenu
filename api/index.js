@@ -1237,12 +1237,12 @@ async function handleReceiptScan(imageData) {
     const db = await connectToDatabase();
     const items = await db.collection('items').find({}).toArray();
     const menuItems = items.map(item => ({ name: item.name, price: Number(item.price) || 0 }));
-    const prompt = `Fiş fotoğrafındaki ürün satırlarını oku. Sadece JSON döndür: {"lines":[{"name":"ürün adı","quantity":1}]}. Ürün adı okunamıyorsa en yakın metni yaz. Toplam satırını ürün olarak ekleme. Menüdeki ürünler: ${JSON.stringify(menuItems)}`;
+    const prompt = `Bu fotoğraf fiş değil; dükkânda masadaki siparişleri el yazısıyla aldığımız nottur. El yazısını, Türkçe kısaltmaları ve yanındaki adet işaretlerini yorumla. Her satırı menü kataloğundaki en uygun ürüne eşleştir. Eşleşme yoksa menu_name değerini null yap. Sadece JSON döndür: {"lines":[{"detected_name":"notta okunan ifade","menu_name":"katalogdaki tam ürün adı veya null","quantity":1,"confidence":0.0}]}. Toplam, masa numarası, garson adı ve notları ürün olarak ekleme. Menü kataloğu: ${JSON.stringify(menuItems)}`;
     const resultText = await callOpenAI({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Fiş OCR ve ürün adedi çıkarma asistanısın. Sadece geçerli JSON döndür.' },
-        { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData } }] }
+        { role: 'system', content: 'El yazılı restoran sipariş notlarını okuyan asistansın. Ürünleri yalnızca verilen menü kataloğundan seç. Sadece geçerli JSON döndür.' },
+        { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData, detail: 'high' } }] }
       ],
       temperature: 0,
       max_tokens: 1200
@@ -1252,8 +1252,9 @@ async function handleReceiptScan(imageData) {
     const lines = Array.isArray(parsed.lines) ? parsed.lines : [];
     const normalized = (value) => String(value).toLocaleLowerCase('tr-TR').replace(/[ıİ]/g, 'i').replace(/[şŞ]/g, 's').replace(/[ğĞ]/g, 'g').replace(/[üÜ]/g, 'u').replace(/[öÖ]/g, 'o').replace(/[çÇ]/g, 'c').replace(/[^a-z0-9]/g, '');
     const receiptLines = lines.map(line => {
-      const detectedName = String(line.name || '').trim();
-      const menuItem = items.find(item => normalized(item.name) === normalized(detectedName)) || items.find(item => normalized(item.name).includes(normalized(detectedName)) || normalized(detectedName).includes(normalized(item.name)));
+      const detectedName = String(line.detected_name || line.name || '').trim();
+      const requestedMenuName = String(line.menu_name || '').trim();
+      const menuItem = items.find(item => requestedMenuName && normalized(item.name) === normalized(requestedMenuName)) || items.find(item => normalized(item.name) === normalized(detectedName)) || items.find(item => normalized(item.name).includes(normalized(detectedName)) || normalized(detectedName).includes(normalized(item.name)));
       const quantity = Math.max(1, Number(line.quantity) || 1);
       const price = menuItem ? Number(menuItem.price) || 0 : null;
       return { detectedName, matchedName: menuItem ? String(menuItem.name) : null, price, quantity, lineTotal: price === null ? null : price * quantity, confidence: menuItem ? 1 : 0 };
