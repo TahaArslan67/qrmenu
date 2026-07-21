@@ -543,7 +543,7 @@ async function renderAdmin(sessionId) {
             
             // Sayısal kategori ID ile eşleştir (category_num alanı ile)
             if (!category && !isNaN(numCategoryId)) {
-              category = categories.find(c => c.category_num === numCategoryId);
+              category = categories.find(c => Number(c.category_num) === numCategoryId);
               console.log(`${item.name} ürünü için kategori sayısal ID ile eşleştirildi: ${numCategoryId}`);
             }
           } catch (e) {
