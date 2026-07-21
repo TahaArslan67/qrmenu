@@ -1236,10 +1236,12 @@ async function handleReceiptScan(imageData) {
   try {
     const db = await connectToDatabase();
     const items = await db.collection('items').find({}).toArray();
-    const menuItems = items.map(item => ({ name: item.name, price: Number(item.price) || 0 }));
+    const menuItems = items.map(item => ({ id: String(item._id), name: item.name }));
     const shorthandRules = {
       'kuş': 'Kuşbaşı',
       'kuşkaş': 'Kuşbaşı Kaşarlı',
+      'kuş başı kaşarlı': 'Kuşbaşı Kaşarlı',
+      'küstbaşı kaşarlı': 'Kuşbaşı Kaşarlı',
       'kola': 'Kutu Kola',
       'cam': 'Şişe Kola',
       'camkola': 'Şişe Kola',
@@ -1250,11 +1252,11 @@ async function handleReceiptScan(imageData) {
       'l': 'Lahmacun',
       'kıykaş yu': 'Kıymalı Kaşarlı Yumurtalı'
     };
-    const prompt = `Bu fotoğraf fiş değil; dükkânda masadaki siparişleri çok kötü ve hızlı el yazısıyla aldığımız nottur. Yazı okunaksız olsa bile satırları tek tek çözmeye çalış. Harfleri menü kataloğuyla karşılaştırarak düzelt; Türkçe karakterleri ve aşağıdaki restoran kısaltmalarını tam olarak uygula: ${JSON.stringify(shorthandRules)}. Özellikle kuş=Kuşbaşı, kuşkaş=Kuşbaşı Kaşarlı, kola=Kutu Kola, cam veya camkola=Şişe Kola, kıy=Kıymalı, kıykaş=Kıymalı Kaşarlı, kaş=Kaşarlı, lah veya L=Lahmacun, kıykaş yu=Kıymalı Kaşarlı Yumurtalı. Bu sözlükteki eşleşmeleri yaklaşık tahminle değiştirme. Örneğin 3L=3 adet Lahmacun, 2L=2 adet Lahmacun, 2 ayran=2 adet Ayran demektir; bunları fiyat veya TL olarak yorumlama. Aynı satırdaki 2, 3, 2x, çarpı işareti veya tekrar çizgisini adet olarak kabul et. Menüde tam karşılığı olmayan bozuk bir ifadede menu_name null olsun; başka ürün uydurma. Her okunabilir ürün için mutlaka satır döndür, eminlik düşükse confidence değerini düşür. Sadece JSON döndür: {"lines":[{"detected_name":"notta tahmin edilen ifade","menu_name":"katalogdaki tam ürün adı veya null","quantity":1,"confidence":0.0}]}. Toplam, masa numarası, garson adı, not ve iptal işaretlerini ürün olarak ekleme. Menü kataloğu: ${JSON.stringify(menuItems)}`;
+    const prompt = `Bu fotoğraf fiş değil; dükkânda masadaki siparişleri çok kötü ve hızlı el yazısıyla aldığımız nottur. Yazı okunaksız olsa bile satırları tek tek çözmeye çalış. Harfleri menü kataloğuyla karşılaştırarak düzelt; Türkçe karakterleri ve aşağıdaki restoran kısaltmalarını tam olarak uygula: ${JSON.stringify(shorthandRules)}. Özellikle kuş=Kuşbaşı, kuşkaş=Kuşbaşı Kaşarlı, kola=Kutu Kola, cam veya camkola=Şişe Kola, kıy=Kıymalı, kıykaş=Kıymalı Kaşarlı, kaş=Kaşarlı, lah veya L=Lahmacun, kıykaş yu=Kıymalı Kaşarlı Yumurtalı. Bu sözlükteki eşleşmeleri yaklaşık tahminle değiştirme. Örneğin 3L=3 adet Lahmacun, 2L=2 adet Lahmacun, 2 ayran=2 adet Ayran demektir; bunları fiyat veya TL olarak yorumlama. Aynı satırdaki 2, 3, 2x, çarpı işareti veya tekrar çizgisini adet olarak kabul et. Her satırda menu_id olarak yalnızca katalogdaki id değerlerinden birini kullan; katalogda karşılığı yoksa menu_id null olsun. menu_name sadece seçilen katalog ürününün tam adı olmalı; başka ürün, isim, fiyat veya ID uydurma. Her okunabilir ürün için mutlaka satır döndür, eminlik düşükse confidence değerini düşür. Sadece JSON döndür: {"lines":[{"detected_name":"notta tahmin edilen ifade","menu_id":"katalogdaki id veya null","menu_name":"katalogdaki tam ürün adı veya null","quantity":1,"confidence":0.0}]}. Toplam, masa numarası, garson adı, not ve iptal işaretlerini ürün olarak ekleme. Menü kataloğu: ${JSON.stringify(menuItems)}`;
     const resultText = await callOpenAI({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'Kötü Türkçe el yazılı restoran sipariş notlarını çözen asistansın. Yalnızca verilen menü kataloğundaki tam ürün adlarını döndür. Fotoğrafta olmayan ürün, fiyat, TL tutarı, toplam, masa numarası veya açıklama uydurma. Bir satırdan emin değilsen menu_name null yap. Sadece geçerli JSON döndür.' },
+        { role: 'system', content: 'Kötü Türkçe el yazılı restoran sipariş notlarını çözen asistansın. Menü kataloğundaki id değerleri otoritedir. Her satırda yalnızca katalogda verilen bir id seç veya null döndür. Yalnızca seçilen id kaydındaki tam ürün adını kullan. Fotoğrafta olmayan ürün, fiyat, TL tutarı, toplam, masa numarası, açıklama veya yeni id uydurma. Bir satırdan emin değilsen menu_id ve menu_name null yap. Sadece geçerli JSON döndür.' },
         { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData, detail: 'high' } }] }
       ],
       max_tokens: 800,
@@ -1271,9 +1273,10 @@ async function handleReceiptScan(imageData) {
     const receiptLines = lines.filter(line => line && typeof line === 'object').map(line => {
       const detectedName = String(line.detected_name || line.name || '').trim();
       const requestedMenuName = String(line.menu_name || '').trim();
+      const requestedMenuId = String(line.menu_id || '').trim();
       const shorthandMatch = shorthandEntries.find(([key]) => key === normalized(detectedName));
       const resolvedName = shorthandMatch ? shorthandMatch[1] : requestedMenuName;
-      const menuItem = items.find(item => resolvedName && normalized(item.name) === normalized(resolvedName)) || (shorthandMatch && items.find(item => normalized(item.name).startsWith(normalized(resolvedName)))) || items.find(item => requestedMenuName && normalized(item.name) === normalized(requestedMenuName));
+      const menuItem = items.find(item => requestedMenuId && String(item._id) === requestedMenuId) || (shorthandMatch && items.find(item => normalized(item.name) === normalized(resolvedName)));
       const quantity = Math.min(20, Math.max(1, Number(line.quantity) || 1));
       const price = menuItem ? Number(menuItem.price) || 0 : null;
       return { detectedName, matchedName: menuItem ? String(menuItem.name) : null, price, quantity, lineTotal: price === null ? null : price * quantity, confidence: menuItem ? 1 : 0 };
