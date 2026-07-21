@@ -240,6 +240,10 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ prompt, image_data: imageData || '' })
                     });
+                    if (res.status === 401) {
+                        window.location.href = '/login';
+                        return;
+                    }
                     const data = await res.json();
                     resultDiv.textContent = data.message || (data.success ? 'Tamamlandı' : 'Hata oluştu');
                     if (data.success) {

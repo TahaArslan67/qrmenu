@@ -67,8 +67,11 @@ const categoryTemplate = fs.readFileSync(path.join(__dirname, '../templates/cate
 // Oturum anahtarı
 const SESSION_SECRET = 'supersecretkey';
 
-// Basit oturum yönetimi
-const sessions = {};
+// Basit oturum yönetimi - imzalı token (sunucu yeniden başlasa bile geçerli)
+const ADMIN_TOKEN = crypto.createHmac('sha256', SESSION_SECRET).update('admin').digest('hex');
+function isAdmin(sessionId) {
+  return !!sessionId && sessionId === ADMIN_TOKEN;
+}
 
 // MongoDB bağlantısı kurma fonksiyonu
 async function connectToDatabase() {
@@ -456,7 +459,7 @@ function renderLogin(message = '') {
 // Admin sayfası
 async function renderAdmin(sessionId) {
   // Oturum kontrolü ekleyelim
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Admin sayfasına erişim reddedildi - oturum yok veya geçersiz');
     
     // Login sayfasına yönlendir
@@ -635,17 +638,13 @@ async function handleLogin(body) {
   
   if (username === 'admin' && password === 'admin123') {
     // Oturum oluştur
-    const sessionId = crypto.randomBytes(16).toString('hex');
-    sessions[sessionId] = { admin: true, created: Date.now() };
-    
-    console.log('Oturum oluşturuldu:', sessionId);
-    console.log('Aktif oturumlar:', sessions);
+    console.log('Admin oturumu oluşturuldu');
     
     return {
       statusCode: 302,
       headers: {
         'Location': '/admin',
-        'Set-Cookie': `sessionId=${sessionId}; Path=/; HttpOnly; SameSite=Strict`
+        'Set-Cookie': `sessionId=${ADMIN_TOKEN}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`
       },
       body: 'Redirecting to admin...'
     };
@@ -658,7 +657,7 @@ async function handleLogin(body) {
 // Ürün ekleme
 async function handleAddItem(body, sessionId) {
   // Oturum kontrolü
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Ürün ekleme reddedildi - oturum yok veya geçersiz');
     
     // Login sayfasına yönlendir
@@ -773,7 +772,7 @@ async function handleAddItem(body, sessionId) {
 // Kategori ekleme
 async function handleAddCategory(body, sessionId) {
   // Oturum kontrolü
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Kategori ekleme reddedildi - oturum yok veya geçersiz');
     
     // Login sayfasına yönlendir
@@ -848,7 +847,7 @@ async function handleAddCategory(body, sessionId) {
 // Ürün silme
 async function handleDeleteItem(itemId, sessionId) {
   // Oturum kontrolü
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Ürün silme reddedildi - oturum yok veya geçersiz');
     
     // Login sayfasına yönlendir
@@ -920,7 +919,7 @@ async function handleDeleteItem(itemId, sessionId) {
 // Kategori düzenleme
 async function handleEditCategory(body, sessionId) {
   // Oturum kontrolü
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Kategori düzenleme reddedildi - oturum yok veya geçersiz');
     return {
       statusCode: 302,
@@ -996,7 +995,7 @@ async function handleEditCategory(body, sessionId) {
 // Kategori silme
 async function handleDeleteCategory(categoryId, sessionId) {
   // Oturum kontrolü
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Kategori silme reddedildi - oturum yok veya geçersiz');
     
     // Login sayfasına yönlendir
@@ -1074,7 +1073,7 @@ async function handleDeleteCategory(categoryId, sessionId) {
 // Ürün düzenleme
 async function handleEditItem(body, sessionId) {
   // Oturum kontrolü
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     console.log('Ürün düzenleme erişimi reddedildi - oturum yok veya geçersiz');
     
     return {
@@ -1312,7 +1311,7 @@ async function applyAiOperation(db, op) {
 
 // AI ile menü güncelleme
 async function handleAiUpdate(prompt, imageData, sessionId) {
-  if (!sessionId || !sessions[sessionId] || !sessions[sessionId].admin) {
+  if (!isAdmin(sessionId)) {
     return { statusCode: 401, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ success: false, message: 'Yetkisiz erişim' }) };
   }
   if (!process.env.OPENAI_API_KEY) {
@@ -1367,7 +1366,7 @@ module.exports = async (req, res) => {
   console.log('URL:', url);
   console.log('Metod:', method);
   console.log('Oturum ID:', sessionId);
-  console.log('Oturumlar:', sessions);
+  console.log('Admin mi:', isAdmin(sessionId));
 
   // Admin sayfası - Oturum gerektiren erişim
   if (url === '/admin' || url.startsWith('/admin/')) {
