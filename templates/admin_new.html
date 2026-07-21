@@ -22,13 +22,25 @@
         .edit-btn:hover { background-color: #0b7dda; }
         .logout { float: right; background-color: #f44336; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; }
         .container { max-width: 1000px; margin: 0 auto; }
+        .navbar { background: #333; padding: 10px; border-radius: 4px; margin-bottom: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+        .navbar a { color: #fff; text-decoration: none; padding: 8px 12px; border-radius: 4px; }
+        .navbar a:hover { background: #555; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Gözde Pide Menü Yönetici Paneli <a href="/logout" class="logout">Çıkış Yap</a></h1>
         
-        <h2>AI ile Menü Güncelle</h2>
+        <nav class="navbar">
+            <a href="#ai-section">AI ile Menü Güncelle</a>
+            <a href="#category-form-title">Kategori Ekle</a>
+            <a href="#categories-section">Kategoriler</a>
+            <a href="#item-add-section">Ürün Ekle</a>
+            <a href="#items-section">Ürünler</a>
+            <a href="/logout">Çıkış Yap</a>
+        </nav>
+        
+        <h2 id="ai-section">AI ile Menü Güncelle</h2>
         <form id="ai-form">
             <textarea id="ai-prompt" placeholder="Örn: Adana Kebabın fiyatını 300 yap, yeni bir Tatlılar kategorisi ekle..." rows="4" style="width:100%;"></textarea>
             <input type="file" id="ai-image" accept="image/*" style="margin:10px 0;">
@@ -52,7 +64,7 @@
             <button type="button" id="cancel-category-edit" style="background-color: #f44336; display: none;">İptal</button>
         </form>
         
-        <h2>Kategoriler</h2>
+        <h2 id="categories-section">Kategoriler</h2>
         <table id="categories-table">
             <thead>
                 <tr>
@@ -65,7 +77,7 @@
             </tbody>
         </table>
         
-        <h2>Ürün Ekle</h2>
+        <h2 id="item-add-section">Ürün Ekle</h2>
         <form method="post" action="/add_item" id="item-form">
             <input type="hidden" name="item_id" id="item-id">
             <input type="text" name="name" placeholder="Ürün adı" required id="item-name">
@@ -83,7 +95,7 @@
             <button type="button" id="cancel-edit" style="background-color: #f44336; display: none;">İptal</button>
         </form>
         
-        <h2>Ürünler</h2>
+        <h2 id="items-section">Ürünler</h2>
         <div id="category-filter" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px;"></div>
         <input type="text" id="product-search" class="search-input" placeholder="Ürün ara..." autocomplete="off">
         <table id="items-table">
