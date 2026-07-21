@@ -237,9 +237,28 @@
         const aiResult = document.getElementById('ai-result');
 
         function formatOp(op) {
+            const d = op.data || {};
             const target = op.target_name || '';
-            const info = op.data ? JSON.stringify(op.data).slice(0, 120) : '';
-            return op.action + (target ? ' (' + target + ')' : '') + (info ? ': ' + info : '');
+            const name = d.name !== undefined ? String(d.name) : target;
+            const price = d.price !== undefined ? String(d.price) + ' ₺' : '';
+            const categoryName = d.category_name ? String(d.category_name) : '';
+            const categoryNum = d.category_num !== undefined ? 'Sıra: ' + String(d.category_num) : '';
+            switch (op.action) {
+                case 'add_category':
+                    return 'Kategori ekle: ' + name + (categoryNum ? ' (' + categoryNum + ')' : '');
+                case 'update_category':
+                    return 'Kategori güncelle: ' + target + (name !== target ? ' -> ' + name : '') + (categoryNum ? ' (' + categoryNum + ')' : '');
+                case 'delete_category':
+                    return 'Kategori sil: ' + target;
+                case 'add_item':
+                    return 'Ürün ekle: ' + name + (price ? ' - ' + price : '') + (categoryName ? ' (' + categoryName + ')' : '');
+                case 'update_item':
+                    return 'Ürün güncelle: ' + target + (name !== target ? ' -> ' + name : '') + (price ? ' - ' + price : '') + (categoryName ? ' (' + categoryName + ')' : '');
+                case 'delete_item':
+                    return 'Ürün sil: ' + target;
+                default:
+                    return op.action + (target ? ' (' + target + ')' : '');
+            }
         }
 
         function showPreview(operations) {
