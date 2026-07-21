@@ -1225,6 +1225,48 @@ function callOpenAI(payload) {
   });
 }
 
+// Fiş fotoğrafını okuyup menü fiyatlarıyla eşleştirir
+async function handleReceiptScan(imageData) {
+  if (!process.env.OPENAI_API_KEY) {
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'OPENAI_API_KEY ortam değişkeni tanımlanmamış' }) };
+  }
+  if (typeof imageData !== 'string' || !imageData.startsWith('data:image/')) {
+    return { statusCode: 400, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Geçerli bir fiş fotoğrafı gönderilmedi' }) };
+  }
+  try {
+    const db = await connectToDatabase();
+    const items = await db.collection('items').find({}).toArray();
+    const menuItems = items.map(item => ({ name: item.name, price: Number(item.price) || 0 }));
+    const prompt = `Fiş fotoğrafındaki ürün satırlarını oku. Sadece JSON döndür: {"lines":[{"name":"ürün adı","quantity":1}]}. Ürün adı okunamıyorsa en yakın metni yaz. Toplam satırını ürün olarak ekleme. Menüdeki ürünler: ${JSON.stringify(menuItems)}`;
+    const resultText = await callOpenAI({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: 'Fiş OCR ve ürün adedi çıkarma asistanısın. Sadece geçerli JSON döndür.' },
+        { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData } }] }
+      ],
+      temperature: 0,
+      max_tokens: 1200
+    });
+    const cleaned = resultText.replace(/^```json\\s*/, '').replace(/```\\s*$/, '').trim();
+    const parsed = JSON.parse(cleaned);
+    const lines = Array.isArray(parsed.lines) ? parsed.lines : [];
+    const normalized = (value) => String(value).toLocaleLowerCase('tr-TR').replace(/[ıİ]/g, 'i').replace(/[şŞ]/g, 's').replace(/[ğĞ]/g, 'g').replace(/[üÜ]/g, 'u').replace(/[öÖ]/g, 'o').replace(/[çÇ]/g, 'c').replace(/[^a-z0-9]/g, '');
+    const receiptLines = lines.map(line => {
+      const detectedName = String(line.name || '').trim();
+      const menuItem = items.find(item => normalized(item.name) === normalized(detectedName)) || items.find(item => normalized(item.name).includes(normalized(detectedName)) || normalized(detectedName).includes(normalized(item.name)));
+      const quantity = Math.max(1, Number(line.quantity) || 1);
+      const price = menuItem ? Number(menuItem.price) || 0 : null;
+      return { detectedName, matchedName: menuItem ? String(menuItem.name) : null, price, quantity, lineTotal: price === null ? null : price * quantity, confidence: menuItem ? 1 : 0 };
+    });
+    const total = receiptLines.reduce((sum, line) => sum + (line.lineTotal || 0), 0);
+    const warnings = receiptLines.filter(line => line.price === null).map(line => `\"${line.detectedName}\" menüde bulunamadı.`);
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lines: receiptLines, total, currency: '₺', warnings }) };
+  } catch (error) {
+    console.error('Fiş tarama hatası:', error);
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'Fiş analiz edilemedi: ' + error.message }) };
+  }
+}
+
 // AI işlemlerini veritabanına uygula
 async function applyAiOperation(db, op) {
   if (!op || !op.action) throw new Error('Geçersiz operasyon');
@@ -1622,6 +1664,24 @@ module.exports = async (req, res) => {
       } catch (error) {
         console.error('AI apply endpoint hatası:', error);
         return res.status(500).end(JSON.stringify({ success: false, message: 'Hata: ' + error.message }));
+      }
+    });
+    return;
+  }
+
+  // Mobil fiş tarama endpoint'i
+  if (url === '/api/receipt/scan' && method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const json = body ? JSON.parse(body) : {};
+        const result = await handleReceiptScan(json.image_data || '');
+        if (result.headers) Object.entries(result.headers).forEach(([key, value]) => res.setHeader(key, value));
+        return res.status(result.statusCode).end(result.body);
+      } catch (error) {
+        console.error('Fiş endpoint hatası:', error);
+        return res.status(500).end(JSON.stringify({ message: 'Hata: ' + error.message }));
       }
     });
     return;
