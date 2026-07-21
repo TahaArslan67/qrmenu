@@ -1245,13 +1245,17 @@ async function handleReceiptScan(imageData) {
         { role: 'user', content: [{ type: 'text', text: prompt }, { type: 'image_url', image_url: { url: imageData, detail: 'high' } }] }
       ],
       temperature: 0,
-      max_tokens: 1200
+      max_tokens: 800,
+      response_format: { type: 'json_object' }
     });
-    const cleaned = resultText.replace(/^```json\\s*/, '').replace(/```\\s*$/, '').trim();
-    const parsed = JSON.parse(cleaned);
+    const responseString = String(resultText || '').trim();
+    const jsonStart = responseString.indexOf('{');
+    const jsonEnd = responseString.lastIndexOf('}');
+    if (jsonStart < 0 || jsonEnd <= jsonStart) throw new Error('AI geçerli JSON döndürmedi');
+    const parsed = JSON.parse(responseString.slice(jsonStart, jsonEnd + 1));
     const lines = Array.isArray(parsed.lines) ? parsed.lines : [];
     const normalized = (value) => String(value).toLocaleLowerCase('tr-TR').replace(/[ıİ]/g, 'i').replace(/[şŞ]/g, 's').replace(/[ğĞ]/g, 'g').replace(/[üÜ]/g, 'u').replace(/[öÖ]/g, 'o').replace(/[çÇ]/g, 'c').replace(/[^a-z0-9]/g, '');
-    const receiptLines = lines.map(line => {
+    const receiptLines = lines.filter(line => line && typeof line === 'object').map(line => {
       const detectedName = String(line.detected_name || line.name || '').trim();
       const requestedMenuName = String(line.menu_name || '').trim();
       const menuItem = items.find(item => requestedMenuName && normalized(item.name) === normalized(requestedMenuName)) || items.find(item => normalized(item.name) === normalized(detectedName)) || items.find(item => normalized(item.name).includes(normalized(detectedName)) || normalized(detectedName).includes(normalized(item.name)));
