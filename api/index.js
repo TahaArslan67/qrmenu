@@ -1508,7 +1508,22 @@ module.exports = async (req, res) => {
   
   // Tanitim sayfasi
   if (url === '/tanitim') {
-    return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(tanitimTemplate);
+    try {
+      const db = await connectToDatabase();
+      const items = await db.collection('items').find({}).toArray();
+      const priceMap = {};
+      items.forEach(item => {
+        if (item.name && item.price !== undefined) {
+          priceMap[item.name.toLowerCase().trim()] = parseFloat(item.price).toFixed(0);
+        }
+      });
+      const injectedScript = `<script>window.__GALERI_PRICES__ = ${JSON.stringify(priceMap)};</script>`;
+      const html = tanitimTemplate.replace('</body>', injectedScript + '\n</body>');
+      return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(html);
+    } catch (err) {
+      console.error('Tanitim fiyat yukleme hatasi:', err);
+      return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(tanitimTemplate);
+    }
   }
 
   // Ana sayfa (kategoriler)

@@ -181,13 +181,39 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            background: linear-gradient(135deg, rgba(44, 24, 16, 0.85), rgba(107, 68, 35, 0.75)),
-                        url('/static/gallery/pide_kiymali.jpg') center/cover no-repeat;
-            background-attachment: fixed;
             position: relative;
+            overflow: hidden;
+        }
+
+        .hero-slideshow {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 0;
+        }
+
+        .hero-slide {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .hero-slide.active {
+            opacity: 1;
+        }
+
+        .hero-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(135deg, rgba(44, 24, 16, 0.85), rgba(107, 68, 35, 0.75));
+            z-index: 1;
         }
 
         .hero-content {
+            position: relative;
+            z-index: 2;
             max-width: 700px;
             padding: 0 24px;
             animation: fadeInUp 1s ease;
@@ -428,6 +454,110 @@
 
         .galeri-card.favori {
             border: 2px solid #c8862e;
+        }
+
+        .galeri-card-fiyat {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #c8862e;
+            margin-top: 6px;
+        }
+
+        .galeri-card-fiyat.yok {
+            display: none;
+        }
+
+        /* ===== FLOATING CALL BUTTON ===== */
+        .floating-call {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 999;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .floating-call-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            transition: var(--transition);
+            text-decoration: none;
+            font-size: 1.5rem;
+        }
+
+        .floating-call-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .floating-call-btn.ara {
+            background: linear-gradient(135deg, #c8862e, #a06820);
+            color: #fff;
+        }
+
+        .floating-call-btn.siparis {
+            background: #25D366;
+            color: #fff;
+        }
+
+        /* ===== INSTAGRAM FEED ===== */
+        .instagram-feed {
+            background: var(--color-cream);
+        }
+
+        .instagram-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 16px;
+            margin-top: 32px;
+        }
+
+        .instagram-post {
+            position: relative;
+            border-radius: var(--radius);
+            overflow: hidden;
+            aspect-ratio: 1;
+            cursor: pointer;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
+
+        .instagram-post:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .instagram-post img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .instagram-post-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .instagram-post:hover .instagram-post-overlay {
+            opacity: 1;
+        }
+
+        .instagram-post-overlay svg {
+            color: #fff;
+            width: 32px;
+            height: 32px;
         }
 
         /* ===== KONUM & SAATLER ===== */
@@ -848,6 +978,7 @@
             <ul class="navbar-links" id="navLinks">
                 <li><a href="#galeri">Galeri</a></li>
                 <li><a href="#konum">Konum & Saatler</a></li>
+                <li><a href="#instagram">Instagram</a></li>
                 <li><a href="#iletisim">İletişim</a></li>
                 <li><a href="/">Menü</a></li>
             </ul>
@@ -861,12 +992,20 @@
 
     <!-- ===== HERO ===== -->
     <section class="hero" id="hero">
+        <div class="hero-slideshow">
+            <div class="hero-slide active" style="background-image: url('/static/gallery/pide_kiymali.jpg')"></div>
+            <div class="hero-slide" style="background-image: url('/static/gallery/lahmacun.jpg')"></div>
+            <div class="hero-slide" style="background-image: url('/static/gallery/eregli_pide.jpg')"></div>
+            <div class="hero-slide" style="background-image: url('/static/gallery/kusbasili_kasarli_pide.jpg')"></div>
+            <div class="hero-slide" style="background-image: url('/static/gallery/pide_kusbasili.jpg')"></div>
+        </div>
+        <div class="hero-overlay"></div>
         <div class="hero-content">
             <h1>Gözde Pide</h1>
             <p>Geleneksel fırın lezzetleri, taze malzemeler ve sıcak bir ortam</p>
             <div class="hero-buttons">
                 <a href="#galeri" class="btn btn-primary">Lezzetleri Keşfet</a>
-                <a href="/" class="btn btn-outline">Menüyü Gör</a>
+                <a href="tel:+905078620167" class="btn btn-outline">Hemen Ara</a>
             </div>
         </div>
         <div class="scroll-indicator">&#9660;</div>
@@ -938,6 +1077,23 @@
         </div>
     </section>
 
+    <!-- ===== INSTAGRAM FEED ===== -->
+    <section class="instagram-feed" id="instagram">
+        <div class="section-container">
+            <h2 class="section-title fade-in">Instagram</h2>
+            <p class="section-subtitle fade-in">@gozdepide.kozlu67 — Son paylaşımlarımız</p>
+            <div class="instagram-grid" id="instagramGrid">
+                <!-- JS ile doldurulacak -->
+            </div>
+            <div style="text-align: center; margin-top: 24px;">
+                <a href="https://www.instagram.com/gozdepide.kozlu67/" target="_blank" rel="noopener" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                    Bizi Takip Edin
+                </a>
+            </div>
+        </div>
+    </section>
+
     <!-- ===== ILETISIM ===== -->
     <section class="iletisim" id="iletisim">
         <div class="section-container">
@@ -977,6 +1133,14 @@
             </div>
         </div>
     </section>
+
+    <!-- ===== FLOATING CALL BUTTONS ===== -->
+    <div class="floating-call">
+        <a href="tel:+905078620167" class="floating-call-btn ara" aria-label="Hemen Ara" title="Hemen Ara">&#128222;</a>
+        <a href="https://wa.me/905078620167?text=Merhaba%2C%20sipari%C5%9F%20vermek%20istiyorum" target="_blank" rel="noopener" class="floating-call-btn siparis" aria-label="WhatsApp Sipariş" title="WhatsApp Sipariş">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </a>
+    </div>
 
     <!-- ===== FOOTER ===== -->
     <footer>
@@ -1023,12 +1187,16 @@
             card.className = 'galeri-card fade-in' + (gorsel.favori ? ' favori' : '');
             card.style.transitionDelay = (index * 0.1) + 's';
             const badge = gorsel.favori ? '<div class="favori-badge">Favori</div>' : '';
+            const prices = window.__GALERI_PRICES__ || {};
+            const fiyat = prices[gorsel.ad.toLowerCase().trim()];
+            const fiyatHtml = fiyat ? `<div class="galeri-card-fiyat">${fiyat} \u20ba</div>` : '<div class="galeri-card-fiyat yok"></div>';
             card.innerHTML = `
                 ${badge}
                 <img src="${gorsel.src}" alt="${gorsel.ad}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
                 <div class="galeri-card-body">
                     <h3>${gorsel.ad}</h3>
                     <p>${gorsel.aciklama}</p>
+                    ${fiyatHtml}
                 </div>
             `;
             galeriGrid.appendChild(card);
@@ -1060,6 +1228,40 @@
                 navbar.style.background = 'rgba(44, 24, 16, 0.95)';
                 navbar.style.boxShadow = 'var(--shadow-sm)';
             }
+        });
+
+        // ===== HERO SLIDESHOW =====
+        const slides = document.querySelectorAll('.hero-slide');
+        let currentSlide = 0;
+        setInterval(() => {
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (currentSlide + 1) % slides.length;
+            slides[currentSlide].classList.add('active');
+        }, 4000);
+
+        // ===== INSTAGRAM FEED =====
+        const igPosts = [
+            'https://www.instagram.com/p/CxXxXxXxXxXx/',
+            'https://www.instagram.com/p/CyYyYyYyYyYy/',
+            'https://www.instagram.com/p/CzZzZzZzZzZz/',
+            'https://www.instagram.com/p/CaAaAaAaAaAa/',
+            'https://www.instagram.com/p/CbBbBbBbBbBb/',
+            'https://www.instagram.com/p/CcCcCcCcCcCc/'
+        ];
+        const igGrid = document.getElementById('instagramGrid');
+        igPosts.forEach(url => {
+            const post = document.createElement('a');
+            post.href = url;
+            post.target = '_blank';
+            post.rel = 'noopener';
+            post.className = 'instagram-post fade-in';
+            post.innerHTML = `
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}" alt="Instagram post" onerror="this.style.display='none'">
+                <div class="instagram-post-overlay">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                </div>
+            `;
+            igGrid.appendChild(post);
         });
 
         // ===== INTERSECTION OBSERVER (fade-in) =====
