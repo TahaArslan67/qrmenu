@@ -369,6 +369,7 @@
             background: var(--color-white);
             border-radius: var(--radius);
             overflow: hidden;
+            position: relative;
             box-shadow: var(--shadow-sm);
             transition: var(--transition);
             cursor: pointer;
@@ -400,6 +401,33 @@
         .galeri-card-body p {
             font-size: 0.9rem;
             color: var(--color-text-light);
+        }
+
+        .favori-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: linear-gradient(135deg, #c8862e, #a06820);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .favori-badge::before {
+            content: '\2605';
+            font-size: 0.85rem;
+        }
+
+        .galeri-card.favori {
+            border: 2px solid #c8862e;
         }
 
         /* ===== KONUM & SAATLER ===== */
@@ -867,7 +895,7 @@
     <section class="galeri" id="galeri">
         <div class="section-container">
             <h2 class="section-title fade-in">Galeri</h2>
-            <p class="section-subtitle fade-in">Fırından çıkan en lezzetli pideler ve daha fazlası</p>
+            <p class="section-subtitle fade-in">Favori ürünlerimiz ve fırından çıkan lezzetler</p>
             <div class="galeri-grid" id="galeriGrid">
                 <!-- JS ile doldurulacak -->
             </div>
@@ -965,15 +993,15 @@
             instagram: 'https://www.instagram.com/gozdepide.kozlu67/',
             mapsEmbed: 'https://maps.google.com/maps?q=G%C3%B6zde%20Pide%20Kozlu%20Zonguldak&t=&z=15&ie=UTF8&iwloc=&output=embed',
             galeriGorseller: [
+                { src: '/static/gallery/lahmacun.jpg', ad: 'Lahmacun', aciklama: 'Geleneksel lahmacun', favori: true },
+                { src: '/static/gallery/eregli_pide.jpg', ad: 'Ereğli Pidesi', aciklama: 'Yöresel Ereğli pidesi', favori: true },
+                { src: '/static/gallery/kusbasili_kasarli_pide.jpg', ad: 'Kuşbaşı Kaşarlı Pide', aciklama: 'Kuşbaşı et ve kaşarla', favori: true },
                 { src: '/static/gallery/pide_kiymali.jpg', ad: 'Kıymalı Pide', aciklama: 'Geleneksel kıymalı pide' },
                 { src: '/static/gallery/pide_kasarli.jpg', ad: 'Kaşarlı Pide', aciklama: 'Bol kaşarlı pide' },
                 { src: '/static/gallery/pide_kusbasili.jpg', ad: 'Kuşbaşılı Pide', aciklama: 'Özel kuşbaşılı pide' },
                 { src: '/static/gallery/pide_sucuklu.jpg', ad: 'Sucuklu Pide', aciklama: 'Sucuklu pide' },
                 { src: '/static/gallery/pide_karisik.jpg', ad: 'Karışık Pide', aciklama: 'Karışık pide' },
-                { src: '/static/gallery/pide_peynirli.jpg', ad: 'Peynirli Pide', aciklama: 'Peynirli pide' },
-                { src: '/static/gallery/lahmacun.jpg', ad: 'Lahmacun', aciklama: 'Geleneksel lahmacun' },
-                { src: '/static/gallery/eregli_pide.jpg', ad: 'Ereğli Pidesi', aciklama: 'Yöresel Ereğli pidesi' },
-                { src: '/static/gallery/kusbasili_kasarli_pide.jpg', ad: 'Kuşbaşı Kaşarlı Pide', aciklama: 'Kuşbaşı et ve kaşarla' }
+                { src: '/static/gallery/pide_peynirli.jpg', ad: 'Peynirli Pide', aciklama: 'Peynirli pide' }
             ]
         };
 
@@ -995,9 +1023,11 @@
         const galeriGrid = document.getElementById('galeriGrid');
         siteInfo.galeriGorseller.forEach((gorsel, index) => {
             const card = document.createElement('div');
-            card.className = 'galeri-card fade-in';
+            card.className = 'galeri-card fade-in' + (gorsel.favori ? ' favori' : '');
             card.style.transitionDelay = (index * 0.1) + 's';
+            const badge = gorsel.favori ? '<div class="favori-badge">Favori</div>' : '';
             card.innerHTML = `
+                ${badge}
                 <img src="${gorsel.src}" alt="${gorsel.ad}" onerror="this.onerror=null; this.src='/static/placeholder.svg'">
                 <div class="galeri-card-body">
                     <h3>${gorsel.ad}</h3>
