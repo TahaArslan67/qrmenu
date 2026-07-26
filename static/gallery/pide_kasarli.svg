@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">
+  <defs>
+    <radialGradient id="bg2" cx="50%" cy="40%">
+      <stop offset="0%" stop-color="#f5e6c8"/>
+      <stop offset="100%" stop-color="#e8d5a8"/>
+    </radialGradient>
+    <linearGradient id="crust2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d4a052"/>
+      <stop offset="50%" stop-color="#c8862e"/>
+      <stop offset="100%" stop-color="#a06820"/>
+    </linearGradient>
+    <linearGradient id="cheese" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f4d03f"/>
+      <stop offset="100%" stop-color="#e0c020"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="300" fill="url(#bg2)"/>
+  <ellipse cx="200" cy="160" rx="170" ry="90" fill="url(#crust2)" stroke="#8b6239" stroke-width="2"/>
+  <ellipse cx="200" cy="155" rx="140" ry="65" fill="url(#cheese)" opacity="0.85"/>
+  <ellipse cx="170" cy="145" rx="30" ry="15" fill="#f9e79f" opacity="0.6"/>
+  <ellipse cx="230" cy="160" rx="35" ry="18" fill="#f9e79f" opacity="0.5"/>
+  <ellipse cx="200" cy="170" rx="28" ry="12" fill="#fffacd" opacity="0.4"/>
+  <circle cx="160" cy="150" r="5" fill="#e0c020" opacity="0.7"/>
+  <circle cx="210" cy="155" r="4" fill="#e0c020" opacity="0.7"/>
+  <circle cx="240" cy="165" r="5" fill="#e0c020" opacity="0.7"/>
+  <circle cx="190" cy="145" r="3" fill="#d4a052" opacity="0.5"/>
+  <circle cx="220" cy="175" r="4" fill="#d4a052" opacity="0.5"/>
+  <path d="M 80 120 Q 200 80 320 120" stroke="#d4a052" stroke-width="3" fill="none" opacity="0.5"/>
+  <path d="M 80 200 Q 200 230 320 200" stroke="#a06820" stroke-width="3" fill="none" opacity="0.5"/>
+  <text x="200" y="285" font-family="Georgia, serif" font-size="16" fill="#2c1810" text-anchor="middle" font-weight="bold">Kaşarlı Pide</text>
+</svg>

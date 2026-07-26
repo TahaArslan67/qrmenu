@@ -63,6 +63,7 @@ const adminTemplate = fs.readFileSync(path.join(__dirname, '../templates/admin_n
 const loginTemplate = fs.readFileSync(path.join(__dirname, '../templates/login.html'), 'utf8');
 const indexTemplate = fs.readFileSync(path.join(__dirname, '../templates/index_new.html'), 'utf8');
 const categoryTemplate = fs.readFileSync(path.join(__dirname, '../templates/category_new.html'), 'utf8');
+const tanitimTemplate = fs.readFileSync(path.join(__dirname, '../templates/tanitim.html'), 'utf8');
 
 // Oturum anahtarı
 const SESSION_SECRET = 'supersecretkey';
@@ -1505,6 +1506,11 @@ module.exports = async (req, res) => {
     return res.status(result.statusCode).end(result.body);
   }
   
+  // Tanitim sayfasi
+  if (url === '/tanitim') {
+    return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(tanitimTemplate);
+  }
+
   // Ana sayfa (kategoriler)
   if (url === '/' || url === '') {
     const result = await renderIndex();

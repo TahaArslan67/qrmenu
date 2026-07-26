@@ -18,7 +18,7 @@ app.use((req, res, next) => {
   apiHandler(req, res);
 });
 
-app.listen(PORT, () => {
-  console.log(`QR Menü sunucusu http://localhost:${PORT} adresinde çalışıyor`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`QR Menü sunucusu http://localhost:${PORT} ve ağ üzerinden ${PORT} portunda çalışıyor`);
   console.log(`Uygulamayı tarayıcıda açmak için: http://localhost:${PORT}`);
 });
