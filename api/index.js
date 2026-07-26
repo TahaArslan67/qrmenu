@@ -1518,7 +1518,7 @@ module.exports = async (req, res) => {
         }
       });
       const injectedScript = `<script>window.__GALERI_PRICES__ = ${JSON.stringify(priceMap)};</script>`;
-      const html = tanitimTemplate.replace('</body>', injectedScript + '\n</body>');
+      const html = tanitimTemplate.replace('<script>', injectedScript + '\n    <script>');
       return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(html);
     } catch (err) {
       console.error('Tanitim fiyat yukleme hatasi:', err);
