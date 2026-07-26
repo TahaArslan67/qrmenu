@@ -789,7 +789,24 @@
             }
 
             .galeri-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 8px;
+            }
+
+            .galeri-card img {
+                height: 120px;
+            }
+
+            .galeri-card-body {
+                padding: 8px 10px;
+            }
+
+            .galeri-card-body h3 {
+                font-size: 0.85rem;
+            }
+
+            .galeri-card-body p {
+                font-size: 0.75rem;
             }
         }
     </style>
@@ -801,7 +818,6 @@
         <div class="navbar-container">
             <a href="#hero" class="navbar-logo">Gözde <span>Pide</span></a>
             <ul class="navbar-links" id="navLinks">
-                <li><a href="#qr-menu">QR Menü</a></li>
                 <li><a href="#galeri">Galeri</a></li>
                 <li><a href="#konum">Konum & Saatler</a></li>
                 <li><a href="#iletisim">İletişim</a></li>
@@ -872,13 +888,13 @@
                     <div class="konum-card fade-in">
                         <h3><span class="icon">&#128337;</span> Çalışma Saatleri</h3>
                         <ul class="saatler-lista" id="saatlerList">
-                            <li><span class="gun">Pazartesi</span><span class="saat">11:00 - 22:00</span></li>
-                            <li><span class="gun">Salı</span><span class="saat">11:00 - 22:00</span></li>
-                            <li><span class="gun">Çarşamba</span><span class="saat">11:00 - 22:00</span></li>
-                            <li><span class="gun">Perşembe</span><span class="saat">11:00 - 22:00</span></li>
-                            <li><span class="gun">Cuma</span><span class="saat">11:00 - 23:00</span></li>
-                            <li><span class="gun">Cumartesi</span><span class="saat">11:00 - 23:00</span></li>
-                            <li><span class="gun">Pazar</span><span class="saat">11:00 - 22:00</span></li>
+                            <li><span class="gun">Pazartesi</span><span class="saat">10:30 - 22:30</span></li>
+                            <li><span class="gun">Salı</span><span class="saat">10:30 - 22:30</span></li>
+                            <li><span class="gun">Çarşamba</span><span class="saat">10:30 - 22:30</span></li>
+                            <li><span class="gun">Perşembe</span><span class="saat">10:30 - 22:30</span></li>
+                            <li><span class="gun">Cuma</span><span class="saat">10:30 - 22:30</span></li>
+                            <li><span class="gun">Cumartesi</span><span class="saat">10:30 - 22:30</span></li>
+                            <li><span class="gun">Pazar</span><span class="saat">10:30 - 22:30</span></li>
                         </ul>
                     </div>
                 </div>
@@ -899,59 +915,36 @@
         <div class="section-container">
             <h2 class="section-title fade-in">İletişim</h2>
             <p class="section-subtitle fade-in">Bize ulaşın, sorularınızı yanıtlayalım</p>
-            <div class="iletisim-grid">
-                <div class="iletisim-info fade-in">
-                    <div class="iletisim-item">
-                        <div class="icon">&#128222;</div>
-                        <div>
-                            <div class="label">Telefon</div>
-                            <div class="value"><a href="tel:0000000000" id="telefonLink">000 000 00 00</a></div>
-                        </div>
-                    </div>
-                    <div class="iletisim-item">
-                        <div class="icon">&#9993;</div>
-                        <div>
-                            <div class="label">E-posta</div>
-                            <div class="value"><a href="mailto:info@gozdepide.com" id="epostaLink">info@gozdepide.com</a></div>
-                        </div>
-                    </div>
-                    <div class="iletisim-item">
-                        <div class="icon">&#127968;</div>
-                        <div>
-                            <div class="label">Adres</div>
-                            <div class="value" id="adresKisa">Adres bilgisi yükleniyor...</div>
-                        </div>
-                    </div>
+            <div class="iletisim-info fade-in" style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
+                <div class="iletisim-item">
+                    <div class="icon">&#128222;</div>
                     <div>
-                        <div class="label" style="margin-bottom: 12px; color: rgba(245, 230, 200, 0.6); font-size: 0.85rem;">Sosyal Medya</div>
-                        <div class="sosyal-linkler">
-                            <a href="#" id="instagramLink" aria-label="Instagram" target="_blank" rel="noopener">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-                            </a>
-                        </div>
+                        <div class="label">Telefon</div>
+                        <div class="value"><a href="tel:0000000000" id="telefonLink">000 000 00 00</a></div>
                     </div>
                 </div>
-                <div class="iletisim-form fade-in">
-                    <div class="form-message" id="formMessage"></div>
-                    <form id="contactForm">
-                        <div class="form-group">
-                            <label for="name">Ad Soyad</label>
-                            <input type="text" id="name" name="name" required placeholder="Adınız Soyadınız">
-                        </div>
-                        <div class="form-group">
-                            <label for="email">E-posta</label>
-                            <input type="email" id="email" name="email" required placeholder="ornek@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="phone">Telefon</label>
-                            <input type="tel" id="phone" name="phone" placeholder="05XX XXX XX XX">
-                        </div>
-                        <div class="form-group">
-                            <label for="message">Mesajınız</label>
-                            <textarea id="message" name="message" required placeholder="Mesajınızı buraya yazın..."></textarea>
-                        </div>
-                        <button type="submit" class="btn-form" id="submitBtn">Mesaj Gönder</button>
-                    </form>
+                <div class="iletisim-item">
+                    <div class="icon">&#9993;</div>
+                    <div>
+                        <div class="label">E-posta</div>
+                        <div class="value"><a href="mailto:info@gozdepide.com" id="epostaLink">info@gozdepide.com</a></div>
+                    </div>
+                </div>
+                <div class="iletisim-item">
+                    <div class="icon">&#127968;</div>
+                    <div>
+                        <div class="label">Adres</div>
+                        <div class="value" id="adresKisa">Adres bilgisi yükleniyor...</div>
+                    </div>
+                </div>
+                <div class="iletisim-item">
+                    <div class="icon" style="display: flex; align-items: center; justify-content: center;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                    </div>
+                    <div>
+                        <div class="label">Instagram</div>
+                        <div class="value"><a href="#" id="instagramLink" target="_blank" rel="noopener">gozdepide.kozlu67</a></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -977,7 +970,10 @@
                 { src: '/static/gallery/pide_kusbasili.jpg', ad: 'Kuşbaşılı Pide', aciklama: 'Özel kuşbaşılı pide' },
                 { src: '/static/gallery/pide_sucuklu.jpg', ad: 'Sucuklu Pide', aciklama: 'Sucuklu pide' },
                 { src: '/static/gallery/pide_karisik.jpg', ad: 'Karışık Pide', aciklama: 'Karışık pide' },
-                { src: '/static/gallery/pide_peynirli.jpg', ad: 'Peynirli Pide', aciklama: 'Peynirli pide' }
+                { src: '/static/gallery/pide_peynirli.jpg', ad: 'Peynirli Pide', aciklama: 'Peynirli pide' },
+                { src: '/static/gallery/lahmacun.jpg', ad: 'Lahmacun', aciklama: 'Geleneksel lahmacun' },
+                { src: '/static/gallery/eregli_pide.jpg', ad: 'Ereğli Pidesi', aciklama: 'Yöresel Ereğli pidesi' },
+                { src: '/static/gallery/kusbasili_kasarli_pide.jpg', ad: 'Kuşbaşı Kaşarlı Pide', aciklama: 'Kuşbaşı et ve kaşarla' }
             ]
         };
 
@@ -1049,31 +1045,6 @@
         }, { threshold: 0.1 });
 
         document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
-
-        // ===== CONTACT FORM =====
-        const form = document.getElementById('contactForm');
-        const formMessage = document.getElementById('formMessage');
-        const submitBtn = document.getElementById('submitBtn');
-
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Gönderiliyor...';
-
-            // Simulasyon — backend olmadığı için sadece başarı mesajı göster
-            setTimeout(() => {
-                formMessage.className = 'form-message success';
-                formMessage.textContent = 'Mesajınız alındı! En kısa sürede size dönüş yapacağız.';
-                form.reset();
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Mesaj Gönder';
-
-                setTimeout(() => {
-                    formMessage.className = 'form-message';
-                    formMessage.textContent = '';
-                }, 5000);
-            }, 800);
-        });
 
         // ===== FOOTER YEAR =====
         document.getElementById('year').textContent = new Date().getFullYear();
