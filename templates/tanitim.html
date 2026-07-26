@@ -1157,12 +1157,12 @@
             instagram: 'https://www.instagram.com/gozdepide.kozlu67/',
             mapsEmbed: 'https://maps.google.com/maps?q=G%C3%B6zde%20Pide%20Kozlu%20Zonguldak&t=&z=15&ie=UTF8&iwloc=&output=embed',
             galeriGorseller: [
-                { src: '/static/gallery/lahmacun.jpg', ad: 'Lahmacun', aciklama: 'Geleneksel lahmacun', favori: true },
-                { src: '/static/gallery/eregli_pide.jpg', ad: 'Ereğli Pidesi', aciklama: 'Yöresel Ereğli pidesi', favori: true },
-                { src: '/static/gallery/kusbasili_kasarli_pide.jpg', ad: 'Kuşbaşı Kaşarlı Pide', aciklama: 'Kuşbaşı et ve kaşarla', favori: true },
-                { src: '/static/gallery/pide_kiymali.jpg', ad: 'Kıymalı Pide', aciklama: 'Geleneksel kıymalı pide' },
-                { src: '/static/gallery/pide_kasarli.jpg', ad: 'Kaşarlı Pide', aciklama: 'Bol kaşarlı pide' },
-                { src: '/static/gallery/pide_kusbasili.jpg', ad: 'Kuşbaşılı Pide', aciklama: 'Özel kuşbaşılı pide' }
+                { src: '/static/gallery/lahmacun.jpg', ad: 'Lahmacun', aciklama: 'Geleneksel lahmacun', favori: true, dbAd: 'lahmacun' },
+                { src: '/static/gallery/eregli_pide.jpg', ad: 'Ereğli Pidesi', aciklama: 'Yöresel Ereğli pidesi', favori: true, dbAd: 'ereğli pide' },
+                { src: '/static/gallery/kusbasili_kasarli_pide.jpg', ad: 'Kuşbaşı Kaşarlı Pide', aciklama: 'Kuşbaşı et ve kaşarla', favori: true, dbAd: 'kuşbaşılı kaşarlı pide' },
+                { src: '/static/gallery/pide_kiymali.jpg', ad: 'Kıymalı Pide', aciklama: 'Geleneksel kıymalı pide', dbAd: 'kıymalı pide' },
+                { src: '/static/gallery/pide_kasarli.jpg', ad: 'Kaşarlı Pide', aciklama: 'Bol kaşarlı pide', dbAd: 'kaşarlı pide' },
+                { src: '/static/gallery/pide_kusbasili.jpg', ad: 'Kuşbaşılı Pide', aciklama: 'Özel kuşbaşılı pide', dbAd: 'kuşbaşılı pide' }
             ]
         };
 
@@ -1188,7 +1188,8 @@
             card.style.transitionDelay = (index * 0.1) + 's';
             const badge = gorsel.favori ? '<div class="favori-badge">Favori</div>' : '';
             const prices = window.__GALERI_PRICES__ || {};
-            const fiyat = prices[gorsel.ad.toLowerCase().trim()];
+            const lookupKey = (gorsel.dbAd || gorsel.ad).toLowerCase().trim();
+            const fiyat = prices[lookupKey];
             const fiyatHtml = fiyat ? `<div class="galeri-card-fiyat">${fiyat} \u20ba</div>` : '<div class="galeri-card-fiyat yok"></div>';
             card.innerHTML = `
                 ${badge}
