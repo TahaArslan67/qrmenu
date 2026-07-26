@@ -911,6 +911,21 @@
             .hero {
                 background-attachment: scroll;
             }
+
+            .instagram-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .instagram-post {
+                max-height: 580px;
+                overflow: hidden;
+                border-radius: var(--radius);
+            }
+
+            .instagram-post iframe {
+                max-height: 580px !important;
+            }
         }
 
         @media (max-width: 480px) {
@@ -930,6 +945,14 @@
 
             .galeri-card img {
                 height: 120px;
+            }
+
+            .instagram-post {
+                max-height: 500px;
+            }
+
+            .instagram-post iframe {
+                max-height: 500px !important;
             }
 
             .galeri-card-body {
