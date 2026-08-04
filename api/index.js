@@ -1726,6 +1726,7 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
 });
 loadOrders('all');
 </script>
+<script src="/static/admin-notifications.js"></script>
 </body>
 </html>`;
 }
@@ -1835,6 +1836,7 @@ async function deleteCampaign(id) {
 }
 loadCampaigns();
 </script>
+<script src="/static/admin-notifications.js"></script>
 </body>
 </html>`;
 }
@@ -1907,6 +1909,7 @@ async function loadReports() {
 }
 loadReports();
 </script>
+<script src="/static/admin-notifications.js"></script>
 </body>
 </html>`;
 }
