@@ -152,7 +152,7 @@ async function deleteCampaign(id) {
 // Rapor verisi getir
 async function fetchReportData() {
   const [orders, products, branches] = await Promise.all([
-    supabaseFetch('/orders?select=*,order_items(*),branch:branches(name)'),
+    supabaseFetch('/orders?select=*,order_items(*),branch:branches(name),user:users(full_name,phone)'),
     supabaseFetch('/products?select=*,category:categories(name)'),
     supabaseFetch('/branches?select=*')
   ]);
@@ -165,6 +165,7 @@ async function fetchReportData() {
   const preparingOrders = validOrders.filter(o => o.status === 'preparing').length;
   const onTheWayOrders = validOrders.filter(o => o.status === 'on_the_way').length;
   const cancelledOrders = validOrders.filter(o => o.status === 'cancelled').length;
+  const cancelledRevenue = validOrders.filter(o => o.status === 'cancelled').reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
   
   // Popular items
   const itemCounts = {};
@@ -195,6 +196,134 @@ async function fetchReportData() {
     });
   }
   
+  // Saat bazlı sipariş yoğunluğu (0-23 saat)
+  const hourlyOrders = new Array(24).fill(0);
+  validOrders.forEach(o => {
+    if (o.created_at) {
+      const hour = new Date(o.created_at).getHours();
+      hourlyOrders[hour]++;
+    }
+  });
+  const peakHour = hourlyOrders.indexOf(Math.max(...hourlyOrders));
+  const peakHourCount = Math.max(...hourlyOrders);
+  
+  // Gün bazlı sipariş yoğunluğu (0=Pazar, 6=Cumartesi)
+  const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  const weekdayOrders = new Array(7).fill(0);
+  validOrders.forEach(o => {
+    if (o.created_at) {
+      const day = new Date(o.created_at).getDay();
+      weekdayOrders[day]++;
+    }
+  });
+  const peakDay = weekdayOrders.indexOf(Math.max(...weekdayOrders));
+  const peakDayName = dayNames[peakDay];
+  
+  // Ortalama sepet tutarı
+  const avgBasket = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  
+  // Tekrar eden müşteriler
+  const customerMap = {};
+  validOrders.forEach(o => {
+    const key = o.user ? (o.user.phone || o.user.full_name) : null;
+    if (key) {
+      customerMap[key] = (customerMap[key] || 0) + 1;
+    }
+  });
+  const customerCounts = Object.values(customerMap);
+  const uniqueCustomers = Object.keys(customerMap).length;
+  const repeatCustomers = customerCounts.filter(c => c > 1).length;
+  const repeatRate = uniqueCustomers > 0 ? (repeatCustomers / uniqueCustomers * 100) : 0;
+  
+  // İptal oranı
+  const cancelRate = totalOrders > 0 ? (cancelledOrders / totalOrders * 100) : 0;
+  
+  // AI önerileri oluştur
+  const suggestions = [];
+  
+  if (peakHourCount > 0) {
+    suggestions.push({
+      icon: '⏰',
+      title: 'En Yoğun Saat',
+      text: `Siparişler en çok ${peakHour}:00-${peakHour + 1}:00 saatleri arasında geliyor (${peakHourCount} sipariş). Bu saatte ek personel planlayın.`
+    });
+  }
+  
+  if (peakDay >= 0) {
+    suggestions.push({
+      icon: '📅',
+      title: 'En Yoğun Gün',
+      text: `${peakDayName} günleri en yoğun gün. Stokları bu güne göre hazırlayın.`
+    });
+  }
+  
+  if (avgBasket > 0) {
+    suggestions.push({
+      icon: '🛒',
+      title: 'Ortalama Sepet',
+      text: `Ortalama sepet tutarı ${avgBasket.toFixed(0)} TL. Kombo menü veya çapraz satış ile bu tutarı artırabilirsiniz.`
+    });
+  }
+  
+  if (popularItems.length > 0) {
+    const top = popularItems[0];
+    suggestions.push({
+      icon: '🔥',
+      title: 'En Çok Satan Ürün',
+      text: `"${top.name}" ${top.quantity} adetle en çok satan ürün. Bu ürüne benzer yeni ürünler deneyin.`
+    });
+  }
+  
+  if (repeatRate > 30) {
+    suggestions.push({
+      icon: '🤝',
+      title: 'Sadık Müşteri',
+      text: `Müşterilerin %${repeatRate.toFixed(0)}'si tekrar sipariş veriyor. Sadakat programı ile bu oranı artırın.`
+    });
+  } else if (uniqueCustomers > 0) {
+    suggestions.push({
+      icon: '💡',
+      title: 'Müşteri Elde Tutma',
+      text: `Tekrar sipariş oranı %${repeatRate.toFixed(0)}. İlk siparişe özel indirim ile müşteri sadakatini artırın.`
+    });
+  }
+  
+  if (cancelRate > 10) {
+    suggestions.push({
+      icon: '⚠️',
+      title: 'Yüksek İptal Oranı',
+      text: `İptal oranı %${cancelRate.toFixed(0)}. Sipariş onay sürecini hızlandırın veya müşteri ile iletişimi artırın.`
+    });
+  }
+  
+  if (cancelledRevenue > 0) {
+    suggestions.push({
+      icon: '💸',
+      title: 'Kayıp Ciro',
+      text: `İptal edilen siparişlerden kaynaklı kayıp: ${cancelledRevenue.toFixed(0)} TL. İptal nedenlerini analiz edin.`
+    });
+  }
+  
+  // Son 7 günde trend
+  if (dailyRevenue.length >= 2) {
+    const recent3 = dailyRevenue.slice(-3).reduce((s, d) => s + d.revenue, 0);
+    const prev3 = dailyRevenue.slice(0, 3).reduce((s, d) => s + d.revenue, 0);
+    if (prev3 > 0) {
+      const trend = ((recent3 - prev3) / prev3 * 100);
+      if (trend > 10) {
+        suggestions.push({ icon: '📈', title: 'Yükseliş Trendi', text: `Son 3 günde ciro %${trend.toFixed(0)} artış gösterdi. Bu momentumu kampanya ile destekleyin.` });
+      } else if (trend < -10) {
+        suggestions.push({ icon: '📉', title: 'Düşüş Trendi', text: `Son 3 günde ciro %${Math.abs(trend).toFixed(0)} azaldı. Kampanya veya indirim ile toparlayın.` });
+      }
+    }
+  }
+  
+  // Saatlik dağılım (sadece 08:00-23:59 arası)
+  const hourlyStats = [];
+  for (let h = 8; h <= 23; h++) {
+    hourlyStats.push({ hour: h, count: hourlyOrders[h] });
+  }
+  
   return {
     totalRevenue,
     totalOrders,
@@ -203,9 +332,21 @@ async function fetchReportData() {
     preparingOrders,
     onTheWayOrders,
     cancelledOrders,
+    cancelledRevenue,
+    cancelRate,
+    avgBasket,
     popularItems,
     dailyRevenue,
-    branches: Array.isArray(branches) ? branches : []
+    branches: Array.isArray(branches) ? branches : [],
+    hourlyStats,
+    peakHour,
+    peakHourCount,
+    peakDayName,
+    weekdayOrders: dayNames.map((name, i) => ({ name, count: weekdayOrders[i] })),
+    uniqueCustomers,
+    repeatCustomers,
+    repeatRate,
+    suggestions
   };
 }
 
@@ -1850,6 +1991,30 @@ function renderAdminReports() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Raporlar - Gözde Pide</title>
 <link rel="stylesheet" href="/static/admin.css">
+<style>
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; text-align: center; }
+.stat-value { font-size: 26px; font-weight: bold; color: var(--primary); margin-bottom: 4px; }
+.stat-label { font-size: 12px; color: #666; }
+.bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 200px; margin-top: 16px; }
+.bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bar { width: 100%; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.3s; }
+.bar-label { font-size: 11px; color: #666; }
+.bar-value { font-size: 11px; color: #333; font-weight: bold; }
+.hourly-chart { display: flex; align-items: flex-end; gap: 4px; height: 160px; margin-top: 16px; }
+.hourly-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hourly-bar .bar { background: #1976d2; }
+.weekday-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.weekday-row { display: flex; align-items: center; gap: 12px; }
+.weekday-name { width: 80px; font-size: 13px; color: #555; }
+.weekday-bar-bg { flex: 1; height: 24px; background: #f0f0f0; border-radius: 4px; overflow: hidden; }
+.weekday-bar-fill { height: 100%; background: var(--primary); border-radius: 4px; transition: width 0.3s; }
+.weekday-count { width: 40px; text-align: right; font-size: 13px; font-weight: bold; color: #333; }
+.suggestion-card { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 10px; border-left: 4px solid var(--primary); }
+.suggestion-icon { font-size: 24px; flex-shrink: 0; }
+.suggestion-body h3 { font-size: 14px; font-weight: 700; color: #333; margin-bottom: 4px; }
+.suggestion-body p { font-size: 13px; color: #666; line-height: 1.5; }
+</style>
 </head>
 <body>
 <nav class="admin-navbar">
@@ -1863,7 +2028,7 @@ function renderAdminReports() {
   <a href="/logout" class="nav-logout">Çıkış</a>
 </nav>
 <div class="admin-content">
-  <div class="page-title">Raporlar</div>
+  <div class="page-title">Raporlar & İstatistikler</div>
   <div id="report-content"><div class="loading">Raporlar yükleniyor...</div></div>
 </div>
 <script>
@@ -1873,16 +2038,19 @@ async function loadReports() {
     if (res.status === 401) { window.location.href = '/login'; return; }
     const data = await res.json();
     
+    // Genel istatistikler
     const statsHtml = '<div class="stats-grid">' +
       '<div class="stat-card"><div class="stat-value">' + (data.totalOrders || 0) + '</div><div class="stat-label">Toplam Sipariş</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + (data.totalRevenue || 0).toFixed(0) + ' TL</div><div class="stat-label">Toplam Ciro</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.avgBasket || 0).toFixed(0) + ' TL</div><div class="stat-label">Ort. Sepet</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.uniqueCustomers || 0) + '</div><div class="stat-label">Tekil Müşteri</div></div>' +
+      '<div class="stat-card"><div class="stat-value">%' + (data.repeatRate || 0).toFixed(0) + '</div><div class="stat-label">Tekrar Oranı</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + (data.pendingOrders || 0) + '</div><div class="stat-label">Bekleyen</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + (data.preparingOrders || 0) + '</div><div class="stat-label">Hazırlanan</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + (data.onTheWayOrders || 0) + '</div><div class="stat-label">Yolda</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + (data.deliveredOrders || 0) + '</div><div class="stat-label">Teslim Edilen</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + (data.cancelledOrders || 0) + '</div><div class="stat-label">İptal</div></div>' +
+      '<div class="stat-card"><div class="stat-value">%' + (data.cancelRate || 0).toFixed(0) + '</div><div class="stat-label">İptal Oranı</div></div>' +
     '</div>';
     
+    // Günlük ciro grafiği
     const maxRevenue = Math.max(...(data.dailyRevenue || []).map(d => d.revenue), 1);
     const chartHtml = '<div class="card"><h2>Son 7 Gün - Günlük Ciro</h2>' +
       '<div class="bar-chart">' +
@@ -1897,12 +2065,52 @@ async function loadReports() {
         }).join('') +
       '</div></div>';
     
+    // Saatlik dağılım
+    const maxHourly = Math.max(...(data.hourlyStats || []).map(h => h.count), 1);
+    const hourlyHtml = '<div class="card"><h2>Saatlik Sipariş Dağılımı</h2>' +
+      '<div class="hourly-chart">' +
+        (data.hourlyStats || []).map(h => {
+          const height = (h.count / maxHourly * 140);
+          return '<div class="hourly-bar">' +
+            '<div class="bar-value">' + h.count + '</div>' +
+            '<div class="bar" style="height:' + height + 'px;"></div>' +
+            '<div class="bar-label">' + h.hour + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div></div>';
+    
+    // Gün bazlı dağılım
+    const maxWeekday = Math.max(...(data.weekdayOrders || []).map(w => w.count), 1);
+    const weekdayHtml = '<div class="card"><h2>Gün Bazlı Sipariş Dağılımı</h2>' +
+      '<div class="weekday-list">' +
+        (data.weekdayOrders || []).map(w => {
+          const width = (w.count / maxWeekday * 100);
+          return '<div class="weekday-row">' +
+            '<div class="weekday-name">' + w.name + '</div>' +
+            '<div class="weekday-bar-bg"><div class="weekday-bar-fill" style="width:' + width + '%;"></div></div>' +
+            '<div class="weekday-count">' + w.count + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div></div>';
+    
+    // Popüler ürünler
     const popularHtml = '<div class="card"><h2>Popüler Ürünler</h2>' +
       '<table><thead><tr><th>Ürün</th><th>Adet</th><th>Ciro</th></tr></thead><tbody>' +
         (data.popularItems || []).map(i => '<tr><td>' + i.name + '</td><td>' + i.quantity + '</td><td>' + i.revenue.toFixed(0) + ' TL</td></tr>').join('') +
       '</tbody></table></div>';
     
-    document.getElementById('report-content').innerHTML = statsHtml + chartHtml + popularHtml;
+    // AI Önerileri
+    const suggestionsHtml = (data.suggestions && data.suggestions.length > 0) ?
+      '<div class="card"><h2>AI Önerileri</h2>' +
+      data.suggestions.map(s =>
+        '<div class="suggestion-card">' +
+          '<div class="suggestion-icon">' + s.icon + '</div>' +
+          '<div class="suggestion-body"><h3>' + s.title + '</h3><p>' + s.text + '</p></div>' +
+        '</div>'
+      ).join('') +
+      '</div>' : '';
+    
+    document.getElementById('report-content').innerHTML = statsHtml + chartHtml + hourlyHtml + weekdayHtml + popularHtml + suggestionsHtml;
   } catch (err) {
     document.getElementById('report-content').innerHTML = '<div class="loading">Hata: ' + err.message + '</div>';
   }
