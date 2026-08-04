@@ -1624,61 +1624,30 @@ function renderAdminOrders() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sipariş Yönetimi - Gözde Pide</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-.container { max-width: 1200px; margin: 0 auto; }
-.header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-.header h1 { color: #333; font-size: 24px; }
-.navbar { background: #333; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
-.navbar a { color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
-.navbar a:hover { background: #555; }
-.navbar a.active { background: #e53935; }
-.filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
-.filter-btn { padding: 8px 16px; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.filter-btn.active { background: #e53935; color: #fff; border-color: #e53935; }
-.order-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px; padding: 16px; }
-.order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
-.order-id { font-weight: bold; color: #333; }
-.order-date { color: #666; font-size: 13px; }
-.order-status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-.status-pending { background: #fff3e0; color: #e65100; }
-.status-preparing { background: #e3f2fd; color: #1565c0; }
-.status-on_the_way { background: #f3e5f5; color: #7b1fa2; }
-.status-delivered { background: #e8f5e9; color: #2e7d32; }
-.status-cancelled { background: #ffebee; color: #c62828; }
-.order-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
-.info-item { font-size: 13px; color: #555; }
-.info-item strong { color: #333; }
-.order-items { background: #f8f9fa; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; }
-.order-item-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #eee; }
-.order-item-row:last-child { border-bottom: none; }
-.status-select { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
-.no-orders { text-align: center; padding: 40px; color: #999; }
-.loading { text-align: center; padding: 40px; color: #666; }
-</style>
+<link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
-<div class="container">
-<div class="header">
-<h1>Sipariş Yönetimi</h1>
-<a href="/logout" style="background:#f44336;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;">Çıkış Yap</a>
-</div>
-<nav class="navbar">
-<a href="/admin">Menü Yönetimi</a>
-<a href="/admin/orders" class="active">Siparişler</a>
-<a href="/admin/campaigns">Kampanyalar</a>
-<a href="/admin/reports">Raporlar</a>
+<nav class="admin-navbar">
+  <div class="nav-brand"><span class="brand-icon">GP</span> Gözde Pide</div>
+  <div class="nav-links">
+    <a href="/admin">Menü</a>
+    <a href="/admin/orders" class="active">Siparişler</a>
+    <a href="/admin/campaigns">Kampanyalar</a>
+    <a href="/admin/reports">Raporlar</a>
+  </div>
+  <a href="/logout" class="nav-logout">Çıkış</a>
 </nav>
-<div class="filters">
-<button class="filter-btn active" data-status="all">Tümü</button>
-<button class="filter-btn" data-status="pending">Bekliyor</button>
-<button class="filter-btn" data-status="preparing">Hazırlanıyor</button>
-<button class="filter-btn" data-status="on_the_way">Yolda</button>
-<button class="filter-btn" data-status="delivered">Teslim Edildi</button>
-<button class="filter-btn" data-status="cancelled">İptal</button>
-</div>
-<div id="orders-list"><div class="loading">Siparişler yükleniyor...</div></div>
+<div class="admin-content">
+  <div class="page-title">Sipariş Yönetimi</div>
+  <div class="filters">
+    <button class="filter-btn active" data-status="all">Tümü</button>
+    <button class="filter-btn" data-status="pending">Bekliyor</button>
+    <button class="filter-btn" data-status="preparing">Hazırlanıyor</button>
+    <button class="filter-btn" data-status="on_the_way">Yolda</button>
+    <button class="filter-btn" data-status="delivered">Teslim Edildi</button>
+    <button class="filter-btn" data-status="cancelled">İptal</button>
+  </div>
+  <div id="orders-list"><div class="loading">Siparişler yükleniyor...</div></div>
 </div>
 <script>
 const statusLabels = { pending: 'Bekliyor', preparing: 'Hazırlanıyor', on_the_way: 'Yolda', delivered: 'Teslim Edildi', cancelled: 'İptal' };
@@ -1692,21 +1661,21 @@ async function loadOrders(status) {
     if (res.status === 401) { window.location.href = '/login'; return; }
     const orders = await res.json();
     if (!Array.isArray(orders) || orders.length === 0) {
-      document.getElementById('orders-list').innerHTML = '<div class="no-orders">Sipariş bulunamadı.</div>';
+      document.getElementById('orders-list').innerHTML = '<div class="no-data">Sipariş bulunamadı.</div>';
       return;
     }
     document.getElementById('orders-list').innerHTML = orders.map(o => {
-      const items = (o.order_items || []).map(i => 
+      const items = (o.order_items || []).map(i =>
         '<div class="order-item-row"><span>' + (i.quantity || 1) + 'x ' + (i.product_name || '') + '</span><span>' + (parseFloat(i.product_price) || 0) * (i.quantity || 1) + ' TL</span></div>'
       ).join('');
       const date = new Date(o.created_at).toLocaleString('tr-TR');
       const branchName = o.branch ? o.branch.name : '-';
       const userName = o.user ? (o.user.full_name || o.user.phone || '-') : '-';
-      return '<div class="order-card">' +
+      return '<div class="order-card status-' + o.status + '">' +
         '<div class="order-header">' +
           '<span class="order-id">#' + (o.id || '').substring(0, 8) + '</span>' +
           '<span class="order-date">' + date + '</span>' +
-          '<span class="order-status status-' + o.status + '">' + (statusLabels[o.status] || o.status) + '</span>' +
+          '<span class="badge badge-' + o.status + '">' + (statusLabels[o.status] || o.status) + '</span>' +
         '</div>' +
         '<div class="order-info">' +
           '<div class="info-item"><strong>Şube:</strong> ' + branchName + '</div>' +
@@ -1724,7 +1693,7 @@ async function loadOrders(status) {
       '</div>';
     }).join('');
   } catch (err) {
-    document.getElementById('orders-list').innerHTML = '<div class="no-orders">Hata: ' + err.message + '</div>';
+    document.getElementById('orders-list').innerHTML = '<div class="no-data">Hata: ' + err.message + '</div>';
   }
 }
 
@@ -1769,56 +1738,31 @@ function renderAdminCampaigns() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kampanyalar - Gözde Pide</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-.container { max-width: 1000px; margin: 0 auto; }
-.header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-.header h1 { color: #333; font-size: 24px; }
-.navbar { background: #333; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
-.navbar a { color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
-.navbar a:hover { background: #555; }
-.navbar a.active { background: #e53935; }
-.form-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-.form-card h2 { color: #333; margin-bottom: 16px; }
-.form-group { margin-bottom: 12px; }
-.form-group label { display: block; margin-bottom: 4px; font-weight: bold; color: #555; font-size: 14px; }
-.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
-.form-group textarea { resize: vertical; min-height: 80px; }
-.btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
-.btn-primary { background: #e53935; color: #fff; }
-.btn-primary:hover { background: #c62828; }
-.campaign-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-.campaign-info h3 { color: #333; font-size: 16px; margin-bottom: 4px; }
-.campaign-info p { color: #666; font-size: 13px; }
-.campaign-meta { font-size: 12px; color: #999; margin-top: 4px; }
-.delete-btn { background: #f44336; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
-.delete-btn:hover { background: #d32f2f; }
-.no-campaigns { text-align: center; padding: 40px; color: #999; }
-</style>
+<link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
-<div class="container">
-<div class="header">
-<h1>Kampanyalar</h1>
-<a href="/logout" style="background:#f44336;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;">Çıkış Yap</a>
-</div>
-<nav class="navbar">
-<a href="/admin">Menü Yönetimi</a>
-<a href="/admin/orders">Siparişler</a>
-<a href="/admin/campaigns" class="active">Kampanyalar</a>
-<a href="/admin/reports">Raporlar</a>
+<nav class="admin-navbar">
+  <div class="nav-brand"><span class="brand-icon">GP</span> Gözde Pide</div>
+  <div class="nav-links">
+    <a href="/admin">Menü</a>
+    <a href="/admin/orders">Siparişler</a>
+    <a href="/admin/campaigns" class="active">Kampanyalar</a>
+    <a href="/admin/reports">Raporlar</a>
+  </div>
+  <a href="/logout" class="nav-logout">Çıkış</a>
 </nav>
-<div class="form-card">
-<h2>Yeni Kampanya Oluştur</h2>
-<div class="form-group"><label>Başlık</label><input type="text" id="camp-title" placeholder="Kampanya başlığı"></div>
-<div class="form-group"><label>Açıklama</label><textarea id="camp-desc" placeholder="Kampanya açıklaması"></textarea></div>
-<div class="form-group"><label>Tip</label><select id="camp-type"><option value="push">Push Bildirim</option><option value="segment">Segment</option></select></div>
-<div class="form-group"><label>Hedef Segment (opsiyonel)</label><input type="text" id="camp-segment" placeholder="Örn: all, vip, inactive"></div>
-<div class="form-group"><label>Planlanan Tarih (opsiyonel)</label><input type="datetime-local" id="camp-scheduled"></div>
-<button class="btn btn-primary" onclick="createCampaign()">Kampanya Oluştur</button>
-</div>
-<div id="campaigns-list"><div class="no-campaigns">Kampanyalar yükleniyor...</div></div>
+<div class="admin-content">
+  <div class="page-title">Kampanyalar</div>
+  <div class="card">
+    <h2>Yeni Kampanya Oluştur</h2>
+    <div class="form-group"><label>Başlık</label><input type="text" id="camp-title" placeholder="Kampanya başlığı"></div>
+    <div class="form-group"><label>Açıklama</label><textarea id="camp-desc" placeholder="Kampanya açıklaması"></textarea></div>
+    <div class="form-group"><label>Tip</label><select id="camp-type"><option value="push">Push Bildirim</option><option value="segment">Segment</option></select></div>
+    <div class="form-group"><label>Hedef Segment (opsiyonel)</label><input type="text" id="camp-segment" placeholder="Örn: all, vip, inactive"></div>
+    <div class="form-group"><label>Planlanan Tarih (opsiyonel)</label><input type="datetime-local" id="camp-scheduled"></div>
+    <button class="btn btn-primary" onclick="createCampaign()">Kampanya Oluştur</button>
+  </div>
+  <div id="campaigns-list"><div class="loading">Kampanyalar yükleniyor...</div></div>
 </div>
 <script>
 async function loadCampaigns() {
@@ -1827,7 +1771,7 @@ async function loadCampaigns() {
     if (res.status === 401) { window.location.href = '/login'; return; }
     const campaigns = await res.json();
     if (!Array.isArray(campaigns) || campaigns.length === 0) {
-      document.getElementById('campaigns-list').innerHTML = '<div class="no-campaigns">Henüz kampanya yok.</div>';
+      document.getElementById('campaigns-list').innerHTML = '<div class="no-data">Henüz kampanya yok.</div>';
       return;
     }
     document.getElementById('campaigns-list').innerHTML = campaigns.map(c => {
@@ -1840,11 +1784,11 @@ async function loadCampaigns() {
           '<p>' + (c.description || '') + '</p>' +
           '<div class="campaign-meta">Tip: ' + (c.type || '') + (c.target_segment ? ' | Segment: ' + c.target_segment : '') + ' | ' + date + scheduled + sent + '</div>' +
         '</div>' +
-        '<button class="delete-btn" onclick="deleteCampaign(\\'' + c.id + '\\')">Sil</button>' +
+        '<button class="btn btn-red" onclick="deleteCampaign(\\'' + c.id + '\\')">Sil</button>' +
       '</div>';
     }).join('');
   } catch (err) {
-    document.getElementById('campaigns-list').innerHTML = '<div class="no-campaigns">Hata: ' + err.message + '</div>';
+    document.getElementById('campaigns-list').innerHTML = '<div class="no-data">Hata: ' + err.message + '</div>';
   }
 }
 
@@ -1903,46 +1847,22 @@ function renderAdminReports() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Raporlar - Gözde Pide</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
-.container { max-width: 1200px; margin: 0 auto; }
-.header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
-.header h1 { color: #333; font-size: 24px; }
-.navbar { background: #333; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
-.navbar a { color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
-.navbar a:hover { background: #555; }
-.navbar a.active { background: #e53935; }
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
-.stat-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; text-align: center; }
-.stat-value { font-size: 28px; font-weight: bold; color: #e53935; margin-bottom: 4px; }
-.stat-label { font-size: 13px; color: #666; }
-.section { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
-.section h2 { color: #333; font-size: 18px; margin-bottom: 16px; }
-table { width: 100%; border-collapse: collapse; }
-th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
-th { background: #f5f5f5; font-weight: bold; color: #333; }
-.bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 200px; margin-top: 16px; }
-.bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.bar { width: 100%; background: #e53935; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.3s; }
-.bar-label { font-size: 11px; color: #666; }
-.bar-value { font-size: 11px; color: #333; font-weight: bold; }
-.loading { text-align: center; padding: 40px; color: #666; }
-</style>
+<link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
-<div class="container">
-<div class="header">
-<h1>Raporlar</h1>
-<a href="/logout" style="background:#f44336;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;">Çıkış Yap</a>
-</div>
-<nav class="navbar">
-<a href="/admin">Menü Yönetimi</a>
-<a href="/admin/orders">Siparişler</a>
-<a href="/admin/campaigns">Kampanyalar</a>
-<a href="/admin/reports" class="active">Raporlar</a>
+<nav class="admin-navbar">
+  <div class="nav-brand"><span class="brand-icon">GP</span> Gözde Pide</div>
+  <div class="nav-links">
+    <a href="/admin">Menü</a>
+    <a href="/admin/orders">Siparişler</a>
+    <a href="/admin/campaigns">Kampanyalar</a>
+    <a href="/admin/reports" class="active">Raporlar</a>
+  </div>
+  <a href="/logout" class="nav-logout">Çıkış</a>
 </nav>
-<div id="report-content"><div class="loading">Raporlar yükleniyor...</div></div>
+<div class="admin-content">
+  <div class="page-title">Raporlar</div>
+  <div id="report-content"><div class="loading">Raporlar yükleniyor...</div></div>
 </div>
 <script>
 async function loadReports() {
@@ -1962,7 +1882,7 @@ async function loadReports() {
     '</div>';
     
     const maxRevenue = Math.max(...(data.dailyRevenue || []).map(d => d.revenue), 1);
-    const chartHtml = '<div class="section"><h2>Son 7 Gün - Günlük Ciro</h2>' +
+    const chartHtml = '<div class="card"><h2>Son 7 Gün - Günlük Ciro</h2>' +
       '<div class="bar-chart">' +
         (data.dailyRevenue || []).map(d => {
           const height = (d.revenue / maxRevenue * 180);
@@ -1975,7 +1895,7 @@ async function loadReports() {
         }).join('') +
       '</div></div>';
     
-    const popularHtml = '<div class="section"><h2>Popüler Ürünler</h2>' +
+    const popularHtml = '<div class="card"><h2>Popüler Ürünler</h2>' +
       '<table><thead><tr><th>Ürün</th><th>Adet</th><th>Ciro</th></tr></thead><tbody>' +
         (data.popularItems || []).map(i => '<tr><td>' + i.name + '</td><td>' + i.quantity + '</td><td>' + i.revenue.toFixed(0) + ' TL</td></tr>').join('') +
       '</tbody></table></div>';
