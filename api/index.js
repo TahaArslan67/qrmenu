@@ -68,6 +68,147 @@ const tanitimTemplate = fs.readFileSync(path.join(__dirname, '../templates/tanit
 // Oturum anahtarı
 const SESSION_SECRET = 'supersecretkey';
 
+// Supabase config
+const SUPABASE_URL = 'https://ziqmpwqzlfjbbmcrooml.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppcW1wd3F6bGZqYmJtY3Jvb21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Nzg5MDcsImV4cCI6MjA5ODI1NDkwN30.wH461SMmfr191zTkWTX-TGijemt218JrAfpZlqf74TI';
+
+// Supabase REST API helper (uses https module for Node compatibility)
+function supabaseFetch(path, options = {}) {
+  return new Promise((resolve, reject) => {
+    const urlPath = `/rest/v1${path}`;
+    const method = options.method || 'GET';
+    const body = options.body ? JSON.stringify(JSON.parse(options.body)) : null;
+    const headers = {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    };
+    if (body) headers['Content-Length'] = Buffer.byteLength(body);
+
+    const req = https.request({
+      hostname: 'ziqmpwqzlfjbbmcrooml.supabase.co',
+      port: 443,
+      path: urlPath,
+      method: method,
+      headers: headers
+    }, (response) => {
+      let data = '';
+      response.on('data', chunk => { data += chunk; });
+      response.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          resolve(data);
+        }
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
+// Siparişleri getir (items ve branch ile birlikte)
+async function fetchOrders(statusFilter) {
+  let query = '/orders?select=*,branch:branches(*),user:users(*),order_items(*)';
+  if (statusFilter && statusFilter !== 'all') {
+    query += `&status=eq.${statusFilter}`;
+  }
+  query += '&order=created_at.desc&limit=100';
+  return await supabaseFetch(query);
+}
+
+// Sipariş durumunu güncelle
+async function updateOrderStatus(orderId, status) {
+  return await supabaseFetch(`/orders?id=eq.${orderId}`, {
+    method: 'PATCH',
+    headers: { 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ status, updated_at: new Date().toISOString() })
+  });
+}
+
+// Kampanyaları getir
+async function fetchCampaigns() {
+  return await supabaseFetch('/campaigns?order=created_at.desc');
+}
+
+// Kampanya oluştur
+async function createCampaign(data) {
+  return await supabaseFetch('/campaigns', {
+    method: 'POST',
+    headers: { 'Prefer': 'return=representation' },
+    body: JSON.stringify(data)
+  });
+}
+
+// Kampanya sil
+async function deleteCampaign(id) {
+  return await supabaseFetch(`/campaigns?id=eq.${id}`, {
+    method: 'DELETE'
+  });
+}
+
+// Rapor verisi getir
+async function fetchReportData() {
+  const [orders, products, branches] = await Promise.all([
+    supabaseFetch('/orders?select=*,order_items(*),branch:branches(name)'),
+    supabaseFetch('/products?select=*,category:categories(name)'),
+    supabaseFetch('/branches?select=*')
+  ]);
+  
+  const validOrders = Array.isArray(orders) ? orders : [];
+  const totalRevenue = validOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0);
+  const totalOrders = validOrders.length;
+  const deliveredOrders = validOrders.filter(o => o.status === 'delivered').length;
+  const pendingOrders = validOrders.filter(o => o.status === 'pending').length;
+  const preparingOrders = validOrders.filter(o => o.status === 'preparing').length;
+  const onTheWayOrders = validOrders.filter(o => o.status === 'on_the_way').length;
+  const cancelledOrders = validOrders.filter(o => o.status === 'cancelled').length;
+  
+  // Popular items
+  const itemCounts = {};
+  validOrders.forEach(order => {
+    if (Array.isArray(order.order_items)) {
+      order.order_items.forEach(item => {
+        const name = item.product_name;
+        if (!itemCounts[name]) itemCounts[name] = { name, quantity: 0, revenue: 0 };
+        itemCounts[name].quantity += item.quantity || 0;
+        itemCounts[name].revenue += (parseFloat(item.product_price) || 0) * (item.quantity || 0);
+      });
+    }
+  });
+  const popularItems = Object.values(itemCounts).sort((a, b) => b.quantity - a.quantity).slice(0, 10);
+  
+  // Revenue by day (last 7 days)
+  const now = new Date();
+  const dailyRevenue = [];
+  for (let i = 6; i >= 0; i--) {
+    const day = new Date(now);
+    day.setDate(day.getDate() - i);
+    const dayStr = day.toISOString().split('T')[0];
+    const dayOrders = validOrders.filter(o => o.created_at && o.created_at.startsWith(dayStr));
+    dailyRevenue.push({
+      date: dayStr,
+      orders: dayOrders.length,
+      revenue: dayOrders.reduce((sum, o) => sum + (parseFloat(o.total) || 0), 0)
+    });
+  }
+  
+  return {
+    totalRevenue,
+    totalOrders,
+    deliveredOrders,
+    pendingOrders,
+    preparingOrders,
+    onTheWayOrders,
+    cancelledOrders,
+    popularItems,
+    dailyRevenue,
+    branches: Array.isArray(branches) ? branches : []
+  };
+}
+
 // Basit oturum yönetimi - imzalı token (sunucu yeniden başlasa bile geçerli)
 const ADMIN_TOKEN = crypto.createHmac('sha256', SESSION_SECRET).update('admin').digest('hex');
 function isAdmin(sessionId) {
@@ -1475,6 +1616,381 @@ async function handleAiApply(operations, sessionId) {
   }
 }
 
+// Admin: Sipariş Yönetimi sayfası
+function renderAdminOrders() {
+  return `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sipariş Yönetimi - Gözde Pide</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1200px; margin: 0 auto; }
+.header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { color: #333; font-size: 24px; }
+.navbar { background: #333; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+.navbar a { color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
+.navbar a:hover { background: #555; }
+.navbar a.active { background: #e53935; }
+.filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-btn { padding: 8px 16px; border: 1px solid #ddd; background: #fff; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.filter-btn.active { background: #e53935; color: #fff; border-color: #e53935; }
+.order-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 12px; padding: 16px; }
+.order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+.order-id { font-weight: bold; color: #333; }
+.order-date { color: #666; font-size: 13px; }
+.order-status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+.status-pending { background: #fff3e0; color: #e65100; }
+.status-preparing { background: #e3f2fd; color: #1565c0; }
+.status-on_the_way { background: #f3e5f5; color: #7b1fa2; }
+.status-delivered { background: #e8f5e9; color: #2e7d32; }
+.status-cancelled { background: #ffebee; color: #c62828; }
+.order-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.info-item { font-size: 13px; color: #555; }
+.info-item strong { color: #333; }
+.order-items { background: #f8f9fa; border-radius: 4px; padding: 8px 12px; margin-bottom: 12px; }
+.order-item-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #eee; }
+.order-item-row:last-child { border-bottom: none; }
+.status-select { padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; }
+.no-orders { text-align: center; padding: 40px; color: #999; }
+.loading { text-align: center; padding: 40px; color: #666; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>Sipariş Yönetimi</h1>
+<a href="/logout" style="background:#f44336;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;">Çıkış Yap</a>
+</div>
+<nav class="navbar">
+<a href="/admin">Menü Yönetimi</a>
+<a href="/admin/orders" class="active">Siparişler</a>
+<a href="/admin/campaigns">Kampanyalar</a>
+<a href="/admin/reports">Raporlar</a>
+</nav>
+<div class="filters">
+<button class="filter-btn active" data-status="all">Tümü</button>
+<button class="filter-btn" data-status="pending">Bekliyor</button>
+<button class="filter-btn" data-status="preparing">Hazırlanıyor</button>
+<button class="filter-btn" data-status="on_the_way">Yolda</button>
+<button class="filter-btn" data-status="delivered">Teslim Edildi</button>
+<button class="filter-btn" data-status="cancelled">İptal</button>
+</div>
+<div id="orders-list"><div class="loading">Siparişler yükleniyor...</div></div>
+</div>
+<script>
+const statusLabels = { pending: 'Bekliyor', preparing: 'Hazırlanıyor', on_the_way: 'Yolda', delivered: 'Teslim Edildi', cancelled: 'İptal' };
+const orderTypes = { delivery: 'Gel-Al', pickup: 'Self Pickup', dine_in: 'Restoranda' };
+const paymentMethods = { online: 'Online', cash_on_delivery: 'Kapıda Ödeme' };
+
+async function loadOrders(status) {
+  document.getElementById('orders-list').innerHTML = '<div class="loading">Siparişler yükleniyor...</div>';
+  try {
+    const res = await fetch('/api/orders?status=' + status, { credentials: 'include' });
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    const orders = await res.json();
+    if (!Array.isArray(orders) || orders.length === 0) {
+      document.getElementById('orders-list').innerHTML = '<div class="no-orders">Sipariş bulunamadı.</div>';
+      return;
+    }
+    document.getElementById('orders-list').innerHTML = orders.map(o => {
+      const items = (o.order_items || []).map(i => 
+        '<div class="order-item-row"><span>' + (i.quantity || 1) + 'x ' + (i.product_name || '') + '</span><span>' + (parseFloat(i.product_price) || 0) * (i.quantity || 1) + ' TL</span></div>'
+      ).join('');
+      const date = new Date(o.created_at).toLocaleString('tr-TR');
+      const branchName = o.branch ? o.branch.name : '-';
+      const userName = o.user ? (o.user.full_name || o.user.phone || '-') : '-';
+      return '<div class="order-card">' +
+        '<div class="order-header">' +
+          '<span class="order-id">#' + (o.id || '').substring(0, 8) + '</span>' +
+          '<span class="order-date">' + date + '</span>' +
+          '<span class="order-status status-' + o.status + '">' + (statusLabels[o.status] || o.status) + '</span>' +
+        '</div>' +
+        '<div class="order-info">' +
+          '<div class="info-item"><strong>Şube:</strong> ' + branchName + '</div>' +
+          '<div class="info-item"><strong>Müşteri:</strong> ' + userName + '</div>' +
+          '<div class="info-item"><strong>Tip:</strong> ' + (orderTypes[o.order_type] || o.order_type) + '</div>' +
+          '<div class="info-item"><strong>Ödeme:</strong> ' + (paymentMethods[o.payment_method] || o.payment_method) + '</div>' +
+          '<div class="info-item"><strong>Toplam:</strong> ' + (parseFloat(o.total) || 0) + ' TL</div>' +
+          (o.scheduled_for ? '<div class="info-item"><strong>Planlanan:</strong> ' + new Date(o.scheduled_for).toLocaleString('tr-TR') + '</div>' : '') +
+          (o.note ? '<div class="info-item"><strong>Not:</strong> ' + o.note + '</div>' : '') +
+        '</div>' +
+        (items ? '<div class="order-items">' + items + '</div>' : '') +
+        '<select class="status-select" onchange="updateStatus(\\'' + o.id + '\\', this.value)">' +
+          Object.entries(statusLabels).map(([k, v]) => '<option value="' + k + '"' + (k === o.status ? ' selected' : '') + '>' + v + '</option>').join('') +
+        '</select>' +
+      '</div>';
+    }).join('');
+  } catch (err) {
+    document.getElementById('orders-list').innerHTML = '<div class="no-orders">Hata: ' + err.message + '</div>';
+  }
+}
+
+async function updateStatus(orderId, status) {
+  try {
+    const res = await fetch('/api/orders/' + orderId + '/status', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    if (res.ok) {
+      loadOrders(currentStatus);
+    } else {
+      alert('Durum güncellenemedi');
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+let currentStatus = 'all';
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentStatus = this.dataset.status;
+    loadOrders(currentStatus);
+  });
+});
+loadOrders('all');
+</script>
+</body>
+</html>`;
+}
+
+// Admin: Kampanya Yönetimi sayfası
+function renderAdminCampaigns() {
+  return `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kampanyalar - Gözde Pide</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1000px; margin: 0 auto; }
+.header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { color: #333; font-size: 24px; }
+.navbar { background: #333; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+.navbar a { color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
+.navbar a:hover { background: #555; }
+.navbar a.active { background: #e53935; }
+.form-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+.form-card h2 { color: #333; margin-bottom: 16px; }
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; margin-bottom: 4px; font-weight: bold; color: #555; font-size: 14px; }
+.form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+.form-group textarea { resize: vertical; min-height: 80px; }
+.btn { padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+.btn-primary { background: #e53935; color: #fff; }
+.btn-primary:hover { background: #c62828; }
+.campaign-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.campaign-info h3 { color: #333; font-size: 16px; margin-bottom: 4px; }
+.campaign-info p { color: #666; font-size: 13px; }
+.campaign-meta { font-size: 12px; color: #999; margin-top: 4px; }
+.delete-btn { background: #f44336; color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+.delete-btn:hover { background: #d32f2f; }
+.no-campaigns { text-align: center; padding: 40px; color: #999; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>Kampanyalar</h1>
+<a href="/logout" style="background:#f44336;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;">Çıkış Yap</a>
+</div>
+<nav class="navbar">
+<a href="/admin">Menü Yönetimi</a>
+<a href="/admin/orders">Siparişler</a>
+<a href="/admin/campaigns" class="active">Kampanyalar</a>
+<a href="/admin/reports">Raporlar</a>
+</nav>
+<div class="form-card">
+<h2>Yeni Kampanya Oluştur</h2>
+<div class="form-group"><label>Başlık</label><input type="text" id="camp-title" placeholder="Kampanya başlığı"></div>
+<div class="form-group"><label>Açıklama</label><textarea id="camp-desc" placeholder="Kampanya açıklaması"></textarea></div>
+<div class="form-group"><label>Tip</label><select id="camp-type"><option value="push">Push Bildirim</option><option value="segment">Segment</option></select></div>
+<div class="form-group"><label>Hedef Segment (opsiyonel)</label><input type="text" id="camp-segment" placeholder="Örn: all, vip, inactive"></div>
+<div class="form-group"><label>Planlanan Tarih (opsiyonel)</label><input type="datetime-local" id="camp-scheduled"></div>
+<button class="btn btn-primary" onclick="createCampaign()">Kampanya Oluştur</button>
+</div>
+<div id="campaigns-list"><div class="no-campaigns">Kampanyalar yükleniyor...</div></div>
+</div>
+<script>
+async function loadCampaigns() {
+  try {
+    const res = await fetch('/api/campaigns', { credentials: 'include' });
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    const campaigns = await res.json();
+    if (!Array.isArray(campaigns) || campaigns.length === 0) {
+      document.getElementById('campaigns-list').innerHTML = '<div class="no-campaigns">Henüz kampanya yok.</div>';
+      return;
+    }
+    document.getElementById('campaigns-list').innerHTML = campaigns.map(c => {
+      const date = new Date(c.created_at).toLocaleString('tr-TR');
+      const scheduled = c.scheduled_at ? ' | Planlanan: ' + new Date(c.scheduled_at).toLocaleString('tr-TR') : '';
+      const sent = c.is_sent ? ' <span style="color:#2e7d32;">Gönderildi</span>' : ' <span style="color:#e65100;">Bekliyor</span>';
+      return '<div class="campaign-card">' +
+        '<div class="campaign-info">' +
+          '<h3>' + (c.title || '') + '</h3>' +
+          '<p>' + (c.description || '') + '</p>' +
+          '<div class="campaign-meta">Tip: ' + (c.type || '') + (c.target_segment ? ' | Segment: ' + c.target_segment : '') + ' | ' + date + scheduled + sent + '</div>' +
+        '</div>' +
+        '<button class="delete-btn" onclick="deleteCampaign(\\'' + c.id + '\\')">Sil</button>' +
+      '</div>';
+    }).join('');
+  } catch (err) {
+    document.getElementById('campaigns-list').innerHTML = '<div class="no-campaigns">Hata: ' + err.message + '</div>';
+  }
+}
+
+async function createCampaign() {
+  const title = document.getElementById('camp-title').value.trim();
+  if (!title) { alert('Başlık gereklidir'); return; }
+  const data = {
+    title,
+    description: document.getElementById('camp-desc').value.trim(),
+    type: document.getElementById('camp-type').value,
+    target_segment: document.getElementById('camp-segment').value.trim() || null,
+    scheduled_at: document.getElementById('camp-scheduled').value || null
+  };
+  try {
+    const res = await fetch('/api/campaigns', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      document.getElementById('camp-title').value = '';
+      document.getElementById('camp-desc').value = '';
+      document.getElementById('camp-segment').value = '';
+      document.getElementById('camp-scheduled').value = '';
+      loadCampaigns();
+    } else {
+      alert('Kampanya oluşturulamadı');
+    }
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+
+async function deleteCampaign(id) {
+  if (!confirm('Bu kampanyayı silmek istediğinize emin misiniz?')) return;
+  try {
+    const res = await fetch('/api/campaigns/' + id, { method: 'DELETE', credentials: 'include' });
+    if (res.ok) loadCampaigns();
+    else alert('Silinemedi');
+  } catch (err) {
+    alert('Hata: ' + err.message);
+  }
+}
+loadCampaigns();
+</script>
+</body>
+</html>`;
+}
+
+// Admin: Raporlar sayfası
+function renderAdminReports() {
+  return `<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raporlar - Gözde Pide</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+.container { max-width: 1200px; margin: 0 auto; }
+.header { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { color: #333; font-size: 24px; }
+.navbar { background: #333; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+.navbar a { color: #fff; text-decoration: none; padding: 8px 16px; border-radius: 4px; font-size: 14px; }
+.navbar a:hover { background: #555; }
+.navbar a.active { background: #e53935; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; text-align: center; }
+.stat-value { font-size: 28px; font-weight: bold; color: #e53935; margin-bottom: 4px; }
+.stat-label { font-size: 13px; color: #666; }
+.section { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 20px; margin-bottom: 20px; }
+.section h2 { color: #333; font-size: 18px; margin-bottom: 16px; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; font-size: 14px; }
+th { background: #f5f5f5; font-weight: bold; color: #333; }
+.bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 200px; margin-top: 16px; }
+.bar-container { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.bar { width: 100%; background: #e53935; border-radius: 4px 4px 0 0; min-height: 2px; transition: height 0.3s; }
+.bar-label { font-size: 11px; color: #666; }
+.bar-value { font-size: 11px; color: #333; font-weight: bold; }
+.loading { text-align: center; padding: 40px; color: #666; }
+</style>
+</head>
+<body>
+<div class="container">
+<div class="header">
+<h1>Raporlar</h1>
+<a href="/logout" style="background:#f44336;color:#fff;padding:8px 16px;border-radius:4px;text-decoration:none;">Çıkış Yap</a>
+</div>
+<nav class="navbar">
+<a href="/admin">Menü Yönetimi</a>
+<a href="/admin/orders">Siparişler</a>
+<a href="/admin/campaigns">Kampanyalar</a>
+<a href="/admin/reports" class="active">Raporlar</a>
+</nav>
+<div id="report-content"><div class="loading">Raporlar yükleniyor...</div></div>
+</div>
+<script>
+async function loadReports() {
+  try {
+    const res = await fetch('/api/reports', { credentials: 'include' });
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    const data = await res.json();
+    
+    const statsHtml = '<div class="stats-grid">' +
+      '<div class="stat-card"><div class="stat-value">' + (data.totalOrders || 0) + '</div><div class="stat-label">Toplam Sipariş</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.totalRevenue || 0).toFixed(0) + ' TL</div><div class="stat-label">Toplam Ciro</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.pendingOrders || 0) + '</div><div class="stat-label">Bekleyen</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.preparingOrders || 0) + '</div><div class="stat-label">Hazırlanan</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.onTheWayOrders || 0) + '</div><div class="stat-label">Yolda</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.deliveredOrders || 0) + '</div><div class="stat-label">Teslim Edilen</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (data.cancelledOrders || 0) + '</div><div class="stat-label">İptal</div></div>' +
+    '</div>';
+    
+    const maxRevenue = Math.max(...(data.dailyRevenue || []).map(d => d.revenue), 1);
+    const chartHtml = '<div class="section"><h2>Son 7 Gün - Günlük Ciro</h2>' +
+      '<div class="bar-chart">' +
+        (data.dailyRevenue || []).map(d => {
+          const height = (d.revenue / maxRevenue * 180);
+          const dayName = new Date(d.date).toLocaleDateString('tr-TR', { weekday: 'short', day: 'numeric' });
+          return '<div class="bar-container">' +
+            '<div class="bar-value">' + d.revenue.toFixed(0) + '</div>' +
+            '<div class="bar" style="height:' + height + 'px;"></div>' +
+            '<div class="bar-label">' + dayName + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div></div>';
+    
+    const popularHtml = '<div class="section"><h2>Popüler Ürünler</h2>' +
+      '<table><thead><tr><th>Ürün</th><th>Adet</th><th>Ciro</th></tr></thead><tbody>' +
+        (data.popularItems || []).map(i => '<tr><td>' + i.name + '</td><td>' + i.quantity + '</td><td>' + i.revenue.toFixed(0) + ' TL</td></tr>').join('') +
+      '</tbody></table></div>';
+    
+    document.getElementById('report-content').innerHTML = statsHtml + chartHtml + popularHtml;
+  } catch (err) {
+    document.getElementById('report-content').innerHTML = '<div class="loading">Hata: ' + err.message + '</div>';
+  }
+}
+loadReports();
+</script>
+</body>
+</html>`;
+}
+
 // API handler
 module.exports = async (req, res) => {
   const url = req.url;
@@ -1489,8 +2005,27 @@ module.exports = async (req, res) => {
   console.log('Oturum ID:', sessionId);
   console.log('Admin mi:', isAdmin(sessionId));
 
+  // Admin alt sayfalar - Oturum gerektiren erişim
+  if (url === '/admin/orders') {
+    if (!isAdmin(sessionId)) return res.writeHead(302, { 'Location': '/login' }).end();
+    const html = renderAdminOrders();
+    return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(html);
+  }
+  
+  if (url === '/admin/campaigns') {
+    if (!isAdmin(sessionId)) return res.writeHead(302, { 'Location': '/login' }).end();
+    const html = renderAdminCampaigns();
+    return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(html);
+  }
+  
+  if (url === '/admin/reports') {
+    if (!isAdmin(sessionId)) return res.writeHead(302, { 'Location': '/login' }).end();
+    const html = renderAdminReports();
+    return res.status(200).setHeader('Content-Type', 'text/html; charset=utf-8').end(html);
+  }
+
   // Admin sayfası - Oturum gerektiren erişim
-  if (url === '/admin' || url.startsWith('/admin/')) {
+  if (url === '/admin' || url === '/admin/') {
     const result = await renderAdmin(sessionId);
     
     // Başlıkları ve durumu ayarla
@@ -1800,6 +2335,95 @@ module.exports = async (req, res) => {
       }
     });
     return;
+  }
+
+  // Admin API: Siparişleri getir
+  if (method === 'GET' && (url.startsWith('/api/orders?') || url === '/api/orders')) {
+    if (!isAdmin(sessionId)) return res.status(401).end(JSON.stringify({ error: 'Yetkisiz' }));
+    try {
+      const urlObj = new URL(url, 'http://localhost');
+      const statusFilter = urlObj.searchParams.get('status') || 'all';
+      const orders = await fetchOrders(statusFilter);
+      return res.status(200).setHeader('Content-Type', 'application/json').end(JSON.stringify(orders));
+    } catch (error) {
+      return res.status(500).end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  // Admin API: Sipariş durumu güncelle
+  if (url.startsWith('/api/orders/') && url.endsWith('/status') && method === 'PATCH') {
+    if (!isAdmin(sessionId)) return res.status(401).end(JSON.stringify({ error: 'Yetkisiz' }));
+    const orderId = url.split('/api/orders/')[1].split('/status')[0];
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const json = JSON.parse(body);
+        await updateOrderStatus(orderId, json.status);
+        return res.status(200).setHeader('Content-Type', 'application/json').end(JSON.stringify({ success: true }));
+      } catch (error) {
+        return res.status(500).end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin API: Kampanyaları getir
+  if (url === '/api/campaigns' && method === 'GET') {
+    if (!isAdmin(sessionId)) return res.status(401).end(JSON.stringify({ error: 'Yetkisiz' }));
+    try {
+      const campaigns = await fetchCampaigns();
+      return res.status(200).setHeader('Content-Type', 'application/json').end(JSON.stringify(campaigns));
+    } catch (error) {
+      return res.status(500).end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  // Admin API: Kampanya oluştur
+  if (url === '/api/campaigns' && method === 'POST') {
+    if (!isAdmin(sessionId)) return res.status(401).end(JSON.stringify({ error: 'Yetkisiz' }));
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', async () => {
+      try {
+        const json = JSON.parse(body);
+        const result = await createCampaign({
+          title: json.title || '',
+          description: json.description || '',
+          type: json.type || 'push',
+          target_segment: json.target_segment || null,
+          scheduled_at: json.scheduled_at || null,
+          is_sent: false
+        });
+        return res.status(200).setHeader('Content-Type', 'application/json').end(JSON.stringify(result));
+      } catch (error) {
+        return res.status(500).end(JSON.stringify({ error: error.message }));
+      }
+    });
+    return;
+  }
+
+  // Admin API: Kampanya sil
+  if (url.startsWith('/api/campaigns/') && method === 'DELETE') {
+    if (!isAdmin(sessionId)) return res.status(401).end(JSON.stringify({ error: 'Yetkisiz' }));
+    const campaignId = url.split('/api/campaigns/')[1];
+    try {
+      await deleteCampaign(campaignId);
+      return res.status(200).setHeader('Content-Type', 'application/json').end(JSON.stringify({ success: true }));
+    } catch (error) {
+      return res.status(500).end(JSON.stringify({ error: error.message }));
+    }
+  }
+
+  // Admin API: Rapor verisi
+  if (url === '/api/reports' && method === 'GET') {
+    if (!isAdmin(sessionId)) return res.status(401).end(JSON.stringify({ error: 'Yetkisiz' }));
+    try {
+      const data = await fetchReportData();
+      return res.status(200).setHeader('Content-Type', 'application/json').end(JSON.stringify(data));
+    } catch (error) {
+      return res.status(500).end(JSON.stringify({ error: error.message }));
+    }
   }
 
   // Statik dosyalar için handler
